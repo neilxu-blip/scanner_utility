@@ -4,10 +4,9 @@ import SwiftUI
 
 struct MainView: View {
     @ObservedObject var session: DocumentSession
-    @State private var showingDocument = false
+    @ObservedObject var discovery: ScannerDiscovery
+    @Binding var showingDocument: Bool
     @State private var showingInstructions = false
-    @State private var scannerID = "mock"
-    @StateObject private var discovery = ScannerDiscovery()
 
     private let modes: [ScanMode] = [
         .init(name: "Auto", symbol: "sparkles.rectangle.stack"),
@@ -39,16 +38,21 @@ struct MainView: View {
                 Text("Product name")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
-                Picker("Product name", selection: $scannerID) {
-                    Text("Mock Scanner").tag("mock")
+                Picker("Product name", selection: $discovery.selectedScannerID) {
+                    if !discovery.hasAvailableScanner {
+                        Text("No scanner connected").tag(nil as String?)
+                    }
                     ForEach(discovery.devices) { device in
-                        Text(device.name).tag(device.id)
+                        Text(device.name).tag(Optional(device.id))
+                    }
+                    if discovery.debugModeEnabled {
+                        Text("Mock Scanner").tag(Optional("mock"))
                     }
                 }
                 .labelsHidden()
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel("Product name")
-                .disabled(discovery.isRefreshing)
+                .disabled(discovery.isRefreshing || !discovery.hasAvailableScanner)
                 Button {
                     Task { await discovery.refresh() }
                 } label: {
@@ -65,8 +69,14 @@ struct MainView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if scannerID != "mock" {
+            } else if discovery.selectedDevice != nil {
                 Text("Real scanner · A4 · Color · 300 dpi. Document starts a physical scan.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            if discovery.debugModeEnabled {
+                Label("Debug Mode · Mock Scanner is available for testing.", systemImage: "ladybug")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -74,6 +84,8 @@ struct MainView: View {
             HStack(spacing: 10) {
                 ForEach(modes) { mode in
                     Button {
+                        guard let backend = discovery.selectedBackend,
+                              session.selectBackend(backend) else { return }
                         showingDocument = true
                         session.start()
                     } label: {
@@ -95,7 +107,7 @@ struct MainView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(!mode.available || discovery.isRefreshing)
+                    .disabled(!mode.available || discovery.isRefreshing || !discovery.hasAvailableScanner)
                     .help(mode.available ? "Scan pages into one PDF" : "This scan type is not available yet")
                     .accessibilityLabel(mode.available ? "Document" : "\(mode.name), not available yet")
                 }
@@ -118,7 +130,7 @@ struct MainView: View {
             HStack {
                 Button("Instructions") { showingInstructions = true }
                 Spacer()
-                Label(session.scannerDisplayName, systemImage: "circle.fill")
+                Label(discovery.selectedScannerName, systemImage: "circle.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 SettingsLink {
@@ -130,12 +142,6 @@ struct MainView: View {
         .frame(width: 720)
         .background(Color(nsColor: .windowBackgroundColor))
         .task { await discovery.refresh() }
-        .onChange(of: scannerID) { _, _ in selectScanner() }
-        .onChange(of: discovery.devices) { _, devices in
-            if scannerID != "mock", !devices.contains(where: { $0.id == scannerID }) {
-                scannerID = "mock"
-            }
-        }
         .sheet(isPresented: $showingDocument) {
             DocumentView(session: session) { showingDocument = false }
         }
@@ -144,14 +150,6 @@ struct MainView: View {
         }
     }
 
-    private func selectScanner() {
-        if scannerID == "mock" {
-            session.selectBackend(MockScannerBackend())
-        } else if let client = discovery.client,
-                  let device = discovery.devices.first(where: { $0.id == scannerID }) {
-            session.selectBackend(ScanimageScannerBackend(client: client, device: device))
-        }
-    }
 }
 
 private struct ScanMode: Identifiable {
@@ -170,7 +168,7 @@ struct InstructionsView: View {
                 .font(.title2.bold())
             Text("1. Choose Document to scan the first page.\n\n2. When it finishes, place your next page and choose Scan. Repeat for each page.\n\n3. Choose Exit, then select where to save the combined PDF.")
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Select your scanner in Product name before choosing Document. Document and each subsequent Scan start the selected scanner. Mock Scanner generates sample pages without hardware. Pages stay in the session until you save; canceling a scan keeps earlier pages.")
+            Text("Connect your scanner and click Refresh if needed. Document and each subsequent Scan start the selected scanner. For testing without hardware, enable View → Debug Mode and choose Mock Scanner. Pages stay in the session until you save; canceling a scan keeps earlier pages.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             HStack {
@@ -201,7 +199,7 @@ struct SettingsView: View {
             Text(compressionDescription)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Text("Real scanners use the installed SANE scanimage utility. Click Refresh after connecting your USB scanner. Mock Scanner remains available for testing without hardware.")
+            Text("Real scanners use the installed SANE scanimage utility. Click Refresh after connecting your USB scanner. Enable View → Debug Mode to make Mock Scanner available for testing without hardware.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

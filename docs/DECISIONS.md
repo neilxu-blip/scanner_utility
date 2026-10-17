@@ -60,7 +60,7 @@ Record only decisions that have actually been made. Add dated entries for signif
 
 ## 2026-10-17 — Selectable SANE backend for physical documents
 
-**Decision:** Extend the existing backend boundary with a `scanimage` subprocess backend and non-scanning device discovery. Keep Mock Scanner as the launch default and require users to select a real scanner explicitly. Document and Scan invoke one acquisition; PDF generation remains deferred until Exit.
+**Decision:** Extend the existing backend boundary with a `scanimage` subprocess backend and non-scanning device discovery. Initially keep Mock Scanner as the launch default and require users to select a real scanner explicitly; this selection policy is superseded by [Debug Mode and real-scanner defaults](#2026-10-17--debug-mode-and-real-scanner-defaults). Document and Scan invoke one acquisition; PDF generation remains deferred until Exit.
 
 **Rationale:** The connected Canon LiDE 120 is detected by the installed SANE 1.4.0, and its queried capabilities support the initial A4, grayscale, 300 dpi, 8-bit settings. This implements the previously selected CLI integration without adding a library dependency.
 
@@ -99,3 +99,11 @@ Record only decisions that have actually been made. Add dated entries for signif
 **Trade-off:** JPEG can introduce slight edge/color artifacts, so exact pixel preservation remains available through Lossless. Compression ratios depend on page content; no target file size is guaranteed. Preserve scan order, A4 bounds, and original pixel dimensions, composite transparency on white, and keep existing-file protection. Existing PDFs are only converted to a separate copy when requested.
 
 **Validation:** Native tests inspect JPEG filters and dimensions inside exported PDFs and compare file sizes. Reference PDF pages were reopened and rendered for visual comparison, and the original file hash remained unchanged. Private reference/output artifacts are ignored by Git; documentation contains only aggregate measurements.
+
+## 2026-10-17 — Debug Mode and real-scanner defaults
+
+**Decision:** Hide Mock Scanner in normal use. Expose it through a View → Debug Mode toggle that starts off each launch. Automatically select a real scanner on discovery/Refresh and mode changes, preserving a valid real selection; otherwise choose mock only in Debug Mode. With no available scanner, disable Product name and Document. Resolve the selected backend again when Document is clicked, with no hidden mock fallback.
+
+**Rationale:** Daily use should show the connected scanner and make a disconnected device obvious, while retaining hardware-independent development on the MacBook Air. This supersedes the earlier mock-first launch policy.
+
+**Trade-off:** Debug Mode must be enabled again after relaunch. Refresh prefers an available real scanner even after an explicit mock selection; select mock again to continue testing. Disable the toggle during discovery and open document sessions to keep the current document's scanner fixed. Automatic selection only enumerates devices; it never starts acquisition.

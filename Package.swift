@@ -11,6 +11,7 @@ let package = Package(
     targets: [
         .target(name: "ScannerCore"),
         .executableTarget(name: "ScannerUtility", dependencies: ["ScannerCore"]),
-        .testTarget(name: "ScannerCoreTests", dependencies: ["ScannerCore"])
+        .testTarget(name: "ScannerCoreTests", dependencies: ["ScannerCore"]),
+        .testTarget(name: "ScannerUtilityTests", dependencies: ["ScannerUtility"])
     ]
 )

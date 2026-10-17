@@ -6,15 +6,24 @@ import SwiftUI
 struct ScannerUtilityApp: App {
     @NSApplicationDelegateAdaptor(ScannerAppDelegate.self) private var appDelegate
     @StateObject private var session = DocumentSession(backend: MockScannerBackend(), exporter: PreferredPDFExporter())
+    @StateObject private var discovery = ScannerDiscovery()
+    @State private var showingDocument = false
 
     var body: some Scene {
         Window("Scanner Utility", id: "main") {
-            MainView(session: session)
+            MainView(session: session, discovery: discovery, showingDocument: $showingDocument)
                 .onAppear { appDelegate.session = session }
         }
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            CommandGroup(after: .toolbar) {
+                Toggle("Debug Mode", isOn: Binding(
+                    get: { discovery.debugModeEnabled },
+                    set: { discovery.setDebugModeEnabled($0) }
+                ))
+                .disabled(showingDocument || discovery.isRefreshing)
+            }
         }
 
         Settings {

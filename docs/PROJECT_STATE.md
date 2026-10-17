@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-17
 
-## Break checkpoint
+## Current checkpoint
 
-Development is stopped for a user-requested break at version 0.4.0. Document scanning, multipage sessions, and selectable PDF compression are implemented. The latest build and 35 tests passed; validation details and remaining limitations are below. No additional feature work is underway.
+Development resumed after the version 0.4.0 break. Version 0.5.0 adds Debug Mode for mock access and automatic real-scanner selection. The latest build and 43 tests passed; validation details and remaining limitations are below.
 
-Implementation changes remain local and uncommitted. Before switching computers, obtain approval to commit and push, then pull and rebuild on the other Mac. Save any in-memory document before quitting; app bundles and scan artifacts are not synchronized through Git.
+This milestone's changes remain local and uncommitted. Before switching computers, obtain approval to commit and push, then pull and rebuild on the other Mac. Save any in-memory document before quitting; app bundles and scan artifacts are not synchronized through Git.
 
 ## Objectives and intended architecture
 
@@ -17,7 +17,8 @@ Use the MacBook Air for UI development and mock testing, the Mac Studio for real
 ## Current implementation
 
 - Swift 6 package with separate `ScannerCore` library, SwiftUI executable, and core test target. No third-party dependencies.
-- Main window discovers SANE devices and offers a scanner picker and Refresh button. Mock Scanner is always the initial selection. Document is implemented; other scan types are visibly unavailable.
+- Main window discovers SANE devices and selects a real scanner automatically. With none detected, Product name and Document are disabled. Refresh selects a newly connected scanner and preserves an existing valid real-scanner selection. Document is implemented; other scan types are visibly unavailable.
+- View → Debug Mode exposes Mock Scanner for hardware-independent testing. It starts off each launch; real devices remain preferred on discovery/Refresh and mode changes. An explicit mock selection is allowed while debugging. The toggle is disabled during discovery and open document sessions.
 - Document starts the selected scanner. Real scans default to A4, color, 300 dpi, 8 bits per RGB channel (24-bit color), with PNG output. Completed pages stay in memory; Scan appends another page without creating a PDF.
 - The UI shows Warming up during preparation, then a determinate bar and numeric percentage from SANE's acquisition reports. Unknown percentages are explicitly identified, rather than presented as warm-up. Small stderr updates are delivered immediately instead of waiting for a buffer to fill or the command to finish.
 - SANE runs as a direct subprocess without a shell. Both output streams are drained concurrently; cancellation interrupts the child, with termination fallbacks. Discovery/acquisition timeouts are 20/300 seconds. Invalid images and command failures are reported without appending an incomplete page.
@@ -29,7 +30,7 @@ Use the MacBook Air for UI development and mock testing, the Mac Studio for real
 - Window dismissal is disabled during the document session; the app guards termination while scanning, exporting, or holding unsaved pages.
 - `scripts/build-app.sh` builds a locally signed app bundle; `scripts/test.sh` runs automated tests. See `README.md` for commands.
 - The build script atomically replaces its generated executable so an already running app can keep its mapped binary and in-memory pages until the user saves and relaunches.
-- The documentation baseline is committed in the repository; this implementation is uncommitted. `origin/main` is now available locally; remote synchronization was not tested in this milestone.
+- The prior document/PDF implementation is committed. This Debug Mode milestone is uncommitted; local `main` and the cached `origin/main` reference matched before these edits. No remote synchronization, commit, or push was performed in this milestone.
 
 ## Current tasks and known issues
 
@@ -45,8 +46,9 @@ Use the MacBook Air for UI development and mock testing, the Mac Studio for real
 
 ## Latest validation
 
-- 2026-10-17: `bash scripts/build-app.sh` passed; version 0.4.0 bundle passes `codesign --verify --deep --strict`. Settings UI shows Standard (smaller files) as the default. No physical scan was initiated.
-- `bash scripts/test.sh`: 35 tests passed, 0 failures. New tests verify substantial size reduction on a noisy document fixture, actual JPEG streams inside the PDF, unchanged image dimensions, a distinct lossless path, and white backgrounds for transparent images. Existing document/PDF/progress/process/timestamp/reconnection tests also pass.
+- 2026-10-17: `bash scripts/build-app.sh` passed; version 0.5.0 bundle passes `codesign --verify --deep --strict`. No physical scan was initiated.
+- `bash scripts/test.sh`: 43 tests passed, 0 failures. Eight new app-model tests cover disconnected/missing-SANE states, Debug Mode, real-scanner defaults, refresh/reconnection, explicit selections, and discovery failure. The prior 35 document/PDF/progress/process/timestamp/reconnection tests also pass, including compression size, JPEG streams, dimensions, lossless output, and transparent-image handling.
+- Native UI checks with the connected Canon LiDE 120: normal mode lists only Canon; enabling View → Debug Mode keeps Canon selected and adds Mock Scanner; explicitly selecting mock then refreshing selects Canon again; disabling Debug Mode hides mock. The app was left in normal mode with Canon selected. Disconnected/missing-SANE behavior was tested with simulated discovery, not a physical unplug test.
 - Reference measurement with the app's exporter: a supplied two-page PDF went from 34,814,590 bytes to 4,151,044 bytes (88.08% smaller) with Standard. High quality measured 6,095,927 bytes. Reopening confirms two A4 pages with 2480 × 3507 pixels each. Original and compressed pages were rendered with Poppler and visually compared; the source hash is unchanged. A separate compressed copy was created, never replacing the source.
 - A new regression test reproduced the delayed progress: a child that waits for acknowledgement of a small stderr update timed out with the old reader. It now completes successfully with immediate pipe reads.
 - Hardware discovery: macOS sees a Canon USB scanner; installed SANE 1.4.0 identifies Canon LiDE 120. Read-only `scanimage --help` confirms grayscale, 300 dpi, and A4-compatible geometry. The restricted shell could not discover it; enumeration/capability queries succeeded outside that shell restriction.
@@ -60,7 +62,7 @@ Use the MacBook Air for UI development and mock testing, the Mac Studio for real
 
 1. Test the rebuilt app with Canon LiDE 120 selected. Obtain explicit approval before any agent-operated test scan.
 2. Compare Standard and High quality output on normal documents, including fine print, and select the preferred size/quality balance in Settings. Continue checking physical multipage scanning, cancellation, and progress; record actual results here.
-3. On the other computer, rebuild from the approved synchronized source and use Mock Scanner unless SANE and compatible hardware are available.
+3. On the other computer, rebuild from the approved synchronized source. Enable View → Debug Mode to use Mock Scanner without hardware; real scanners are preferred when detected.
 4. Consider crash recovery and configurable scan options after the basic real-scanner document flow is validated.
 5. Refresh this file before switching computers. Commit and push only with approval.
 

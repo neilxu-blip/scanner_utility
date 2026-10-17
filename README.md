@@ -15,7 +15,7 @@ You can also open `Package.swift` in Xcode and run the `ScannerUtility` executab
 
 ## Document workflow
 
-1. Select your scanner in **Product name**. Click **Refresh** after connecting a scanner. **Mock Scanner** remains available without hardware.
+1. The app selects a detected real scanner in **Product name**. Click **Refresh** after connecting a scanner. Without a scanner, Product name and Document are disabled.
 2. Put a document on the glass and close the lid. Choose **Document** to start scanning. **Warming up…** appears during preparation; when SANE reports acquisition, a percentage and determinate progress bar appear. If a device reports acquisition without a percentage, the app explicitly says progress is unavailable.
 3. Choose **Scan** after each page to append another page to the same session. The app rediscovers the selected scanner's current USB address before every page. This starts another physical scan when a real scanner is selected, without generating a PDF.
 4. Choose **Exit** to finish the session, select a new PDF filename, and save all pages in order as one PDF. The suggested name includes the local save date/time, for example `Scanned Document 2026-10-17_00-22-04.pdf`. Exit ends the batch; the app stays open.
@@ -46,7 +46,7 @@ Private exports and validation files under `output/` and `tmp/pdfs/` are ignored
 
 Install SANE's `scanimage` utility and a SANE backend supporting your scanner on the computer connected to the USB device. The app searches standard Apple Silicon/Intel Homebrew locations and the launch environment's PATH. SANE 1.4.0 is already installed on the currently tested computer; no installation was performed by this project.
 
-Device discovery does not scan a page. Selecting a real scanner also does not scan; **Document**, **Scan**, and **Try Again** do. The initial selection on launch is always Mock Scanner. Do not use automated hardware scan commands without explicit user approval.
+Device discovery and automatic scanner selection do not scan a page; **Document**, **Scan**, and **Try Again** do. Do not use automated hardware scan commands without explicit user approval.
 
 If discovery fails, check the USB connection and close other scanner applications, then click Refresh. Command failures retain earlier pages for retry. Discovery times out after 20 seconds and acquisition after five minutes. Other scanner models may require different scan options and have not been validated.
 
@@ -54,11 +54,16 @@ SANE USB addresses can change between scans. The app matches the selected model 
 
 After rebuilding, save any open document with Exit, then quit and reopen the app to load the update. Rebuilding replaces the generated executable atomically so an already running app can keep its existing session until you finish it.
 
+## Debug Mode
+
+Choose **View → Debug Mode** to add **Mock Scanner** to Product name for testing without hardware. Debug Mode starts off each launch and cannot be changed during an open document session or scanner discovery. With no real scanner, enabling it selects Mock Scanner. When a real scanner is available, launch discovery, Refresh, and mode changes prefer the real device; you can then explicitly select Mock Scanner for testing. Turning Debug Mode off removes Mock Scanner.
+
 ## Structure and tests
 
 - `Sources/ScannerUtility`: SwiftUI views, native save dialog, and app lifecycle.
 - `Sources/ScannerCore`: mock/SANE backends, subprocess lifecycle, document session, and PDF export.
 - `Tests/ScannerCoreTests`: document workflow, cancellation, PDF validation, and hardware-independent SANE command tests.
+- `Tests/ScannerUtilityTests`: scanner discovery, Debug Mode, and default selection tests using simulated device listings.
 
 ```sh
 bash scripts/test.sh
@@ -68,6 +73,6 @@ Read `AGENTS.md`, `docs/PROJECT_STATE.md`, and `docs/DECISIONS.md` before develo
 
 ## Resume or switch computers
 
-The current checkpoint is version 0.4.0; see [project state](docs/PROJECT_STATE.md) for completed work, validation, and remaining tasks.
+The current checkpoint is version 0.5.0; see [project state](docs/PROJECT_STATE.md) for completed work, validation, and remaining tasks.
 
-Save any open document with **Exit** before quitting. Source changes must be committed and pushed with user approval before they can be pulled on the other Mac; the current implementation is still uncommitted. Rebuild using the Run commands above on each computer, since the generated app bundle is not stored in Git. Use Mock Scanner on the MacBook Air and select the real scanner on the Mac Studio when ready to scan.
+Save any open document with **Exit** before quitting. Source changes must be committed and pushed with user approval before they can be pulled on the other Mac. Rebuild using the Run commands above on each computer, since the generated app bundle is not stored in Git. On the MacBook Air, enable Debug Mode to use Mock Scanner; on the Mac Studio, the connected real scanner is selected automatically.
