@@ -1,0 +1,52 @@
+import AppKit
+import ScannerCore
+import SwiftUI
+
+@main
+struct ScannerUtilityApp: App {
+    @NSApplicationDelegateAdaptor(ScannerAppDelegate.self) private var appDelegate
+    @StateObject private var session = DocumentSession(backend: MockScannerBackend(), exporter: PreferredPDFExporter())
+
+    var body: some Scene {
+        Window("Scanner Utility", id: "main") {
+            MainView(session: session)
+                .onAppear { appDelegate.session = session }
+        }
+        .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+        }
+
+        Settings {
+            SettingsView()
+        }
+    }
+}
+
+@MainActor
+final class ScannerAppDelegate: NSObject, NSApplicationDelegate {
+    weak var session: DocumentSession?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let session, session.phase == .scanning || session.phase == .exporting ||
+                (session.phase == .ready && !session.pages.isEmpty) else {
+            return .terminateNow
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Finish your document before quitting"
+        alert.informativeText = "Your scanned pages are still in this session. Use Exit in the document window to save them together as a PDF."
+        alert.addButton(withTitle: "Return to Document")
+        alert.runModal()
+        return .terminateCancel
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+}
