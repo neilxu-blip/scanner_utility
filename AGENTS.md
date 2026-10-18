@@ -24,7 +24,9 @@
 
 ## Documentation maintenance
 
+- Keep `README.md` a user manual: opening the app, scanning, settings, saving, and troubleshooting. Put build/test instructions, architecture, and development handoff details in `docs/PROJECT_STATE.md`.
 - Update `docs/PROJECT_STATE.md` at meaningful milestones and before switching computers. Include current progress, tasks, issues, latest build/test results, next steps, and hardware requirements.
 - Update `docs/DECISIONS.md` when significant technical decisions are made or changed. Record rationale, trade-offs, and rejected alternatives only when supported by actual decisions.
+- Check user-facing instructions against implemented behavior. Record unimplemented proposals and unresolved UI/documentation mismatches in project state; do not present them as completed features or adopted decisions.
 - Update this file only when permanent project instructions change.
 - Keep documentation concise, practical, and suitable for GitHub. Do not invent completed features, test results, or decisions, or copy entire conversation histories.

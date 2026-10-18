@@ -1,78 +1,121 @@
-# Scanner Utility
+# Scanner Utility — User Manual
 
-A native macOS SwiftUI scanner utility using SANE, with a mock scanner for development without hardware. Requires macOS 14+ and Xcode with Swift 6 tooling selected via `xcode-select`.
+Scan documents and photos on macOS, combine pages into one PDF, and save scans as images. Current version: **0.7.0**. Requires **macOS 14 or later** and a compatible scanner configured with SANE. Canon LiDE 120 has been used successfully for document scanning; other scanners and the newer scan modes still need hardware testing.
 
-## Build and run
+## Open the app
 
-```sh
-bash scripts/build-app.sh
-open ".build/Scanner Utility.app"
-```
+If the app has already been built, double-click **Scanner Utility.app** in the project's `.build` folder. Because that folder is hidden, in Finder choose **Go → Go to Folder…** (Shift–Command–G), enter your project folder's path followed by `/.build`, and open the app.
 
-You can also open `Package.swift` in Xcode and run the `ScannerUtility` executable scheme. No third-party packages are required. After rebuilding, save any open session, quit, and reopen the app to load the update.
+You do not need to use Xcode for everyday scanning. If you only have the source files, follow [Build and test](docs/PROJECT_STATE.md#build-and-test) once to create the app. A downloadable installer is not provided by this repository.
 
-## Scan modes
+After an update, save your current scans, quit Scanner Utility, and reopen it to load the new version.
 
-The app selects a detected real scanner in **Product name**. Click **Refresh** after connecting a scanner. Without one, Product name and all scan buttons are disabled. For hardware-independent testing, enable **View → Debug Mode**, then select **Mock Scanner**. Debug Mode starts off each launch; real scanners remain preferred on discovery/Refresh.
+## Scan several pages into one PDF
 
-| Mode | Workflow |
+1. Connect the scanner and open Scanner Utility.
+2. Check **Product name**. Your connected scanner should be selected. Click **Refresh** if you connected it after opening the app.
+3. Place the first page on the glass and close the cover.
+4. Click **Document**. With the default settings, this scans in **A4, Color, 300 dpi** and collects pages for a PDF.
+5. After the page finishes, replace it with the next page and click **Scan**. Repeat for every page. No PDF is created between scans.
+6. When all pages are ready, click **Exit**, choose the filename and destination, and click **Save**.
+
+**Exit finishes and saves the document; it does not quit the application.** To keep this multipage workflow, leave **Settings → Document Scan → Data format** set to **PDF (Multiple Pages)**.
+
+The default save location is your **Documents** folder. Suggested names include the date and time, such as `Scanned Document 2026-10-17_14-30-05.pdf`. You can change the name and destination in the save dialog.
+
+### Progress, review, and cancellation
+
+- **Warming up:** the app is finding/preparing the scanner. This label covers setup and calibration until scanning progress becomes available.
+- **Scanning:** the percentage reflects image data received, rather than time remaining. If the scanner cannot supply a percentage, the app says so.
+- **100%:** finishing acquisition or image processing may still take time.
+- **Cancel:** stops the current acquisition; earlier completed pages remain available.
+- **Check scan results:** enables page review controls. Use **Review page**, **Earlier**, **Later**, **Rotate**, and **Remove…** as needed. Removal requires confirmation.
+- **Discard…:** clears unsaved scans after confirmation. It does not delete files already saved.
+
+Canceling the save dialog or encountering a save error keeps the completed pages available for another attempt. Save before quitting: unsaved scans are held in memory and cannot be recovered after a crash or forced quit.
+
+## Choose a scan mode
+
+Clicking a mode starts scanning, except **Advanced**, which first shows its setup window.
+
+| Mode | Use it for | How to finish |
+| --- | --- | --- |
+| **Auto** | One item; text detection suggests PDF or JPEG when Data format is Automatic. Check the choice, especially for sparse text or handwriting. | Choose PDF or JPEG if needed, then **Save…**. |
+| **Document** | Several pages in one PDF. Defaults to A4, Color, 300 dpi. | **Scan** adds pages; **Exit** saves the batch. |
+| **Photo** | A photo. Defaults to 4 × 6 inches, Color, 600 dpi, JPEG. | **Save…**, then start another scan from the main window. |
+| **Custom** | A separate set of your preferred scan and save settings. | With PDF selected, **Scan** adds pages; **Save…** finishes. |
+| **Stitch** | An item larger than the glass, scanned in two overlapping parts. | Scan the first part, reposition it, click **Scan second half**, adjust the join, then **Save…**. |
+| **Advanced** | Adjust scan size, resolution, and image corrections before starting. | Choose **Scan** in the setup window, then **Save…** after acquisition. |
+
+JPEG, PNG, and TIFF workflows save one image per session. PDF can collect multiple pages in Document, Photo, Custom, or Advanced when explicitly selected. Auto always acquires one item. Stitch combines its two scans into one image or one PDF page.
+
+For Stitch, keep some of the same detail visible in both scans. Set **Join direction** and **Overlap** to match how you moved the original. Check the preview; use **Retake second half…** if needed. Alignment is manual.
+
+## Change settings
+
+Click **Settings…** in the main window. The left sidebar contains **General** and six scan profiles under **Scanning**. Select a page to edit its controls on the right.
+
+Each scan mode remembers its own settings. **OK** saves your edits across the pages you changed. **Cancel** or closing the window discards preference edits. **Defaults** resets only the selected page's draft; click OK to keep the reset. These buttons remain visible while scrolling.
+
+### Settings for each scan mode
+
+| Group | What you can change |
 | --- | --- |
-| Auto | Scan once, detect text locally, and suggest PDF for documents or JPEG for photos. Review or override the choice before saving. |
-| Document | Scan the first page, use **Scan** for each additional page, then **Exit** to save one combined PDF. Defaults: A4, Color, 300 dpi. |
-| Photo | Scan one photo and save JPEG, PNG, TIFF, or the configured PDF. Defaults: 4 × 6 inches, Color, 600 dpi, JPEG. |
-| Custom | Use your own source, scan options, corrections, and output format. PDF supports multiple pages; image formats save one image. |
-| Stitch | Scan two overlapping halves, select left-to-right or top-to-bottom, adjust overlap, inspect the join, then save one image or PDF. |
-| Advanced | Adjust native SANE acquisition and local brightness/contrast/gamma before choosing Scan. This is the native alternative to the Windows ScanGear workflow. |
+| **Scan Options** | Source, color mode, paper size or custom dimensions, and resolution. Expand **Image Processing Settings** for crop, enhancement, sharpening, show-through/moiré/gutter-shadow reduction, straightening, and text rotation. |
+| **Save Settings** | Filename prefix, default folder, PDF/JPEG/PNG/TIFF or Automatic format, PDF compression, JPEG quality, searchable text, dated subfolders, and review controls. |
+| **Application Settings** | What happens after saving: nothing, open Preview or another app, show in Finder, copy to another folder, create an email draft, or save recognized text in a separate text file. |
 
-**Document**, other scan-mode buttons, **Scan**, **Scan second half**, and **Try Again** operate the selected real scanner. Advanced first opens a setup dialog. Discovery, Refresh, and scanner selection do not scan. Automated physical scans require explicit approval.
+Scan options take effect when you start a new session. Selecting **Magazine** enables moiré reduction; you can turn it off under Image Processing Settings. Optional corrections can change the appearance of a scan, so check results before relying on them.
 
-Warm-up includes device setup/calibration until SANE reports acquisition. Numeric progress measures received image data, not time remaining. A 100% reading may be followed by image processing. Canceling acquisition keeps earlier completed pages; save cancellation/failure retains scans for retry. Review can rotate/reorder pages or remove an unsaved page after confirmation. Discarding a session also requires confirmation; saved files are never deleted.
+**Check scan results** currently controls page-editing tools. Turning it off still leaves the save dialog in place, despite the Settings wording suggesting direct saving.
 
-Stitching needs matching scan dimensions and carefully aligned overlapping content. It blends a manually chosen overlap; it does not automatically register features. Retake the second half or discard/restart if a join cannot be produced. Auto uses local text-density heuristics, so sparse text and handwriting may be classified as photos; choose PDF manually or use Document when needed.
+If **Save to a subfolder with the current date** is enabled, the app saves inside a folder such as `2026_10_17` under the folder chosen in the save dialog. It creates that dated folder only after you approve Save. Existing files are never replaced; use a different name if one already exists.
 
-## Settings
+Post-save actions run only after the file has been saved. Email opens a draft for you to review and send yourself. An error opening another app does not mean the scan failed to save.
 
-The settings controls follow [Canon's settings index](https://ij.manual.canon/ij/webmanual/ScanUtility/W/LiDE%20120/1.1/EN/SU/Su-PAGE3.html), adapted to macOS. A persistent left sidebar contains **General** and all six modes under **Scanning**; each mode has an independent profile. Select a page to edit its controls on the right. Defaults, Cancel, and OK stay visible while scrolling. General groups shared controls into Scanner, Text Recognition, and Outgoing Images.
+### General settings
 
-- **Scan Options:** source, color/grayscale/black-and-white, common photo/paper sizes or custom dimensions, and resolution. Optional native crop, enhancement, sharpening, show-through/moiré/gutter-shadow reduction, deskew, orientation, and tone adjustments apply after acquisition. Magazine recommends moiré reduction. All pages keep the acquisition options captured when the session starts.
-- **Save Settings:** PDF/JPEG/PNG/TIFF or automatic PDF/JPEG choice, timestamped filename prefix, destination, optional `yyyy_MM_dd` subfolder, PDF compression, JPEG quality, searchable PDF, and review controls. The native save dialog confirms the name and folder; date folders are created only after approval. Existing files are never overwritten.
-- **Application Settings:** do nothing, Preview, Finder, a chosen app, an additional folder copy, an email draft, or a recognized-text sidecar. These run after successful saving. An email draft is never sent automatically, and failure of a follow-up action does not invalidate the saved file.
-- **General Settings:** the same scanner selection as the main window, OCR language, outgoing image size (original or maximum 640/800/1024 pixels), and temporary outgoing-copy folder. Resizing affects only copies sent to apps/email; saved originals and PDFs are unchanged. Temporary copies are retained, not automatically deleted.
-
-**OK** persists profile and General drafts locally. **Cancel** or closing Settings discards preference edits. **Defaults** resets only the selected draft. General Product selection changes the shared scanner immediately and is locked during a scan session. Existing Document/PDF preferences migrate.
-
-OCR runs locally through Apple Vision and can add invisible searchable text to PDFs. Smaller analysis images are used for detection; saved image detail is not silently downsampled. Native corrections approximate the requested effects and can change appearance. Low-confidence crop/orientation detection preserves geometry; gutter correction reduces broad shading rather than dewarping book pages.
-
-## PDF size and data safety
-
-Choose **Settings → [scan mode] → Save Settings → PDF compression**:
-
-| Setting | Output |
+| Section | Purpose |
 | --- | --- |
-| Standard (smaller files) | Default JPEG-compressed PDF images, with slight quality loss. |
-| High quality | Less JPEG compression, more detail, larger files. |
-| Lossless (large files) | Original image pixels apart from selected processing; color scans can be large. |
+| **Scanner** | Select **Product name** or refresh the scanner list. This selection changes the main window immediately, even before OK. Finish the current scan session before changing scanners. |
+| **Text Recognition** | Choose the document language for searchable PDFs, text export, and text orientation. Recognition runs locally on the Mac. |
+| **Outgoing Images** | Limit image copies sent to apps/email to 640, 800, or 1024 pixels on the longest side, or choose **No change**. Select the temporary folder for those copies. Saved originals and PDFs keep their dimensions. |
 
-An earlier two-page reference measured 34.8 MB losslessly versus 4.15 MB with Standard (88% smaller), preserving 2480 × 3507 pixels per page. Sizes depend on content/noise. Compression and searchable text are captured once per export. No PDF is written between Document page scans, and existing PDFs are never automatically rewritten.
+The temporary folder is not a recovery folder for unsaved scans. The app does not automatically remove the outgoing copies it creates.
 
-Pages remain in memory until the session finishes; crash/forced-quit recovery and disk spooling are not implemented. Acquisition is limited to 128 MiB and 80 million pixels; stitch working bitmaps to 256 MiB. Large/high-resolution combinations can be rejected before scanning. This version does not implement Canon's large-image driver mode or physical scanner-button triggering.
+### Keep PDF files smaller
 
-## Real scanner setup
+Open **Settings → Document Scan → Save Settings → PDF compression** (or choose another scan profile).
 
-Install SANE's `scanimage` and a backend supporting your USB scanner. The app checks standard Apple Silicon/Intel Homebrew locations, then PATH. Prior hardware validation used SANE 1.4.0 and Canon LiDE 120. Scanner-specific capability negotiation is not implemented; unsupported options report an error while retaining earlier pages.
+| Choice | Result |
+| --- | --- |
+| **Standard (smaller files)** | Default compression with some image quality loss. Keeps the scanned pixel dimensions. |
+| **High quality** | Preserves more fine detail, with larger files. |
+| **Lossless (large files)** | Preserves processed image pixels; full-color scans can be much larger. |
 
-SANE USB addresses can change between pages. The app refreshes the selected model/backend address before acquisition. It refuses ambiguous replacements and automatically retries a changed address only after an open failure before any acquisition/output. Discovery times out after 20 seconds; acquisition after five minutes. Check USB connections and close other scanner apps if discovery fails.
+For comparison, one two-page scan measured **34.8 MB** with lossless storage and **4.15 MB** with Standard compression. Results vary with page content; no particular file size is guaranteed.
 
-## Development and tests
+To make a searchable PDF, enable **Create a PDF that supports keyword search** and choose the appropriate language in General. Check recognized text before relying on it.
 
-```sh
-bash scripts/test.sh
-```
+## Try the app without a scanner
 
-OCR/CoreImage tests need ordinary macOS graphics/service access. Restricted execution environments may block those services; see [project state](docs/PROJECT_STATE.md) for actual results and remaining manual checks.
+Choose **View → Debug Mode** in the menu bar, then select **Mock Scanner** under Product name. It creates sample pages for trying the workflow without moving scanner hardware.
 
-- `Sources/ScannerUtility`: SwiftUI, preferences, workflow/save coordination, native dialogs and app actions.
-- `Sources/ScannerCore`: mock/SANE backends, image/OCR processing, stitching, session state, and native PDF/image export.
-- `Tests`: hardware-independent process, session, image, OCR, persistence, and export tests.
+Debug Mode starts off each time the app launches. If a real scanner is connected, it remains the default. Refresh prefers a real scanner again, so explicitly select Mock Scanner when you want sample pages.
 
-Private artifacts under `output/` and `tmp/pdfs/`, and generated `.build/` files, are ignored by Git. Current version: **0.7.0**. Read `AGENTS.md`, [project state](docs/PROJECT_STATE.md), and [decisions](docs/DECISIONS.md) before development or switching computers. Commit/push requires approval; pull approved source and rebuild separately on each Mac.
+## Troubleshooting
+
+| Problem | What to try |
+| --- | --- |
+| Product name and scan buttons are gray | Connect the scanner and click **Refresh**. Real scanning requires SANE's `scanimage` and a compatible backend installed on the Mac. |
+| Scanner remains missing or busy | Check the USB connection, close other scanner applications, then Refresh. SANE setup details are in [Hardware requirements](docs/PROJECT_STATE.md#hardware-requirements). |
+| A later page fails | Earlier completed pages remain available. Check the connection before retrying **Scan**, or save the completed pages. The app refreshes the scanner address before each page. |
+| Progress pauses before scanning | Preparation can take time. A resident helper has not been implemented, and its potential speed benefit has not been measured. |
+| A high-resolution scan is rejected | Reduce resolution or scan area. Large scans and stitched images can exceed the app's memory limits. |
+| Saving fails | Choose a writable folder and a new filename, then try saving again. Existing files are protected. |
+| New features do not appear after rebuilding | Save any current session, quit the running app, and reopen the newly built copy. |
+| Finder shows an old modification date on the app | A macOS app is a folder. Its contents can be updated without changing the outer folder's displayed date. |
+
+This version does not respond to the scanner's physical buttons or run an always-on background helper. Advanced uses native controls; Canon's Windows ScanGear driver is not included.
+
+For development, current test results, and remaining validation work, see [Project state](docs/PROJECT_STATE.md). Architecture history is in [Technical decisions](docs/DECISIONS.md); contributor instructions are in [AGENTS.md](AGENTS.md).

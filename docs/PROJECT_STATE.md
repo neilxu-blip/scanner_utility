@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Version 0.7.0 implements all six on-screen scan modes and General Settings using native macOS frameworks and SANE. The latest layout update places General and all scan modes in one persistent left sidebar, with a fixed page header and action buttons on the right. General controls are grouped into Scanner, Text Recognition, and Outgoing Images. The app rebuild and 14 settings/profile tests passed; final visual checks remain pending because native UI inspection is unavailable. No agent-operated physical scans were initiated.
 
-The Settings layout changes remain local and uncommitted on top of the existing committed workflows. No commit, push, fetch, or remote synchronization was performed for this update. Before switching computers, obtain approval to commit/push, then pull and rebuild on the other Mac. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
+The Settings layout is committed locally as `bff3144` (settings window updated). This documentation refresh remains uncommitted. README is now the user manual; this file owns build/test and handoff instructions. This documentation pass did not run commit, push, fetch, or remote synchronization commands. Before switching computers, obtain approval to commit/push, then pull and rebuild on the other Mac. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
 
 ## Objectives and architecture
 
@@ -34,9 +34,11 @@ MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub 
 - Timestamped names, destination/date subfolders, native save confirmation, exclusive writes, and retention of pages after canceled/failed saves. Post-save actions: Preview, Finder, another chosen app, additional folder copy, email draft, or OCR text sidecar. Email is never sent automatically; outgoing resizing never alters the saved original.
 - SANE discovery per page resolves changing USB addresses. Retry only after a failed open with no acquisition/output and a changed address. Ambiguous/missing devices retain earlier pages. Concurrent pipe draining, live SANE percentages, warm-up status, timeouts, cancellation, and incomplete-image checks remain.
 - Build script atomically replaces the generated executable; finish and save a running session before quitting/relaunching the update.
+- Each page uses a new `scanimage` process after discovery. No resident helper, persistent SANE connection, launch-at-login component, or physical-button monitor is implemented. Startup/preparation timings have not been benchmarked.
 
 ## Latest validation
 
+- Latest documentation pass: checked the manual against the current views, preference defaults, save flow, and exporters. All four Markdown files passed local link/heading and code-fence checks (15 local links), and `git diff --check` passed. No application code changed during this pass, so builds/tests were not rerun; the results below are from the preceding implementation work.
 - Settings sidebar update: `swift test` with the same cache/sandbox flags as `scripts/test.sh` and `--filter 'DocumentSettingsTests|ScanProfileSettingsTests'`: **14 passed, 0 failures**. Existing tests cover preference drafts, defaults, independent profiles, migration, and General persistence. These are model tests, not interactive navigation tests. `git diff --check` also passed.
 - Previous full workflow validation: `bash scripts/test.sh` with normal macOS graphics/text-recognition access: **103 passed, 0 failures**. Covers all earlier behavior plus mode/profile migration, image formats and overwrite protection, custom/stitched PDF geometry, joining/order/seams/cancellation, outgoing copies, review/discard/export retry, local OCR/searchable PDF appearance, corrections, four text orientations, and selected Chinese recognition. The full graphics/OCR suite was not rerun for this layout-only update.
 - A restricted-shell run could not use CoreImage/Vision services and failed graphics/OCR tests. The normal-access run above validates those same paths. The orientation test also exposed a real scoring issue, fixed and covered by regressions before the final successful suite.
@@ -46,12 +48,47 @@ MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub 
 
 ## Known limits and next steps
 
-1. Manually exercise all modes with Mock Scanner, including Settings/General navigation, save cancellation, page editing, Stitch retake/overlap, and post-save actions. Restore native UI automation before claiming visual verification.
+1. Manually exercise all modes with Mock Scanner, including the new sidebar, switching between edited profiles and General, OK/Cancel/close/Defaults, save cancellation, page editing, Stitch retake/overlap, and post-save actions. Restore native UI automation before claiming visual verification.
 2. With user approval for any agent-operated acquisition, validate new options/modes against Canon LiDE 120 on the Mac Studio. Other scanners and capability negotiation remain unverified.
 3. Auto uses text-density heuristics; sparse text/handwriting can be misclassified. Review the PDF/JPEG choice or use an explicit mode. Corrections are native approximations, not Canon algorithms; gutter reduction is illumination correction, not book dewarping. Stitching uses manual alignment, not automatic feature registration.
 4. Sessions remain in memory; crash recovery and disk spooling are absent. Acquisition is capped at 128 MiB and 80 million pixels; stitched bitmap working data is capped at 256 MiB. Some high-resolution combinations are rejected before scanning. No 4 GB/large-image ScanGear equivalent.
 5. Physical scanner-button triggering was explicitly excluded from this update. Canon ScanGear and Windows-only integrations are not bundled. Native email actions open drafts only; configured temporary outgoing copies are retained and are not automatically purged.
 6. Minimum macOS 14 and Intel execution, distribution/notarization, and release-build validation remain unverified. Refresh this file before switching computers; commit/push requires approval.
+7. Settings wording currently overstates saving behavior: “Check scan results” only toggles page-editing controls, and `DocumentView.chooseDestination()` always opens a save dialog. The explanatory text also implies image batches, while JPEG/PNG/TIFF workflows currently save one image per session. The manual documents actual behavior; aligning the UI wording is pending.
+
+## Performance and button proposals
+
+The user asked whether physical buttons can be supported and whether a resident helper would improve speed. Neither proposal has been approved for implementation. Before choosing a new backend design, measure device discovery, preparation, acquisition, and processing separately during an approved hardware test. A helper that only launches the existing commands would retain repeated setup; a connection kept open during a session might reduce it, but no speed improvement is established. Background button support would need separate hardware validation and lifecycle design. Direct SANE integration and an always-running helper remain undecided, not rejected.
+
+## Build and test
+
+Use macOS 14+ and Xcode with Swift 6 tooling selected through `xcode-select`. From the repository root:
+
+```sh
+bash scripts/build-app.sh
+open ".build/Scanner Utility.app"
+```
+
+Alternatively, open `Package.swift` in Xcode and run the `ScannerUtility` executable scheme. `bash scripts/build-app.sh release` requests a release build, which has not been validated. The script signs the local app ad hoc; there is no notarized installer or distribution setup.
+
+```sh
+bash scripts/test.sh
+codesign --verify --deep --strict ".build/Scanner Utility.app"
+git diff --check
+```
+
+Tests use mock/synthetic inputs and do not initiate physical scans. CoreImage/Vision tests need ordinary macOS graphics/service access. The scripts use project-local caches and disable SwiftPM's nested sandbox.
+
+The generated app bundle is updated in place, so Finder may show an older modification date for its outer folder while the executable inside is current. A running copy keeps its old executable until relaunched. Save the current session, quit, and reopen after building.
+
+## Development handoff
+
+- `Sources/ScannerCore`: acquisition, session state, image processing, OCR, stitching, and export.
+- `Sources/ScannerUtility`: SwiftUI, preferences, workflow coordination, native dialogs, and post-save actions.
+- `Tests`: hardware-independent process, session, preferences, image, and export checks.
+- Generated `.build/` and private artifacts under `output/` and `tmp/pdfs/` are ignored. Keep personal scans and local machine paths out of commits.
+
+Before switching computers, save/finish sessions, update this file with actual validation and open issues, and obtain approval before committing or pushing. On the other computer, pull approved changes and rebuild locally. App bundles and local preferences are not synchronized through GitHub; check profiles and folder choices on each Mac.
 
 ## Hardware requirements
 

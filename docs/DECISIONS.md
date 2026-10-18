@@ -2,13 +2,15 @@
 
 Record only decisions that have actually been made. Add dated entries for significant changes, including rationale, trade-offs, and any alternatives explicitly rejected. If a decision changes, mark the earlier entry as superseded and link its replacement.
 
+Entries describe the decisions at their milestone; current behavior and validation are in [PROJECT_STATE.md](PROJECT_STATE.md), and usage instructions are in the [user manual](../README.md). Resident helpers and physical-button monitoring are still proposals, documented in project state rather than adopted decisions.
+
 ## 2026-10-14 — Native SwiftUI interface and separate scanner backend
 
 **Decision:** Prefer native SwiftUI for the macOS interface and keep scanner backend code separate from UI code.
 
 **Rationale:** This follows the project's native macOS objective and lets UI development proceed independently of hardware integration.
 
-**Trade-off:** A shared backend boundary must be defined and maintained. Its concrete API and project layout have not been decided.
+**Trade-off:** A shared backend boundary must be defined and maintained. The package layout was subsequently established in [Swift package with a native macOS app](#2026-10-15--swift-package-with-a-native-macos-app), with acquisition/session/export code in `ScannerCore` and views in `ScannerUtility`.
 
 ## 2026-10-14 — Initial SANE integration through `scanimage`
 
@@ -51,6 +53,8 @@ Record only decisions that have actually been made. Add dated entries for signif
 **Trade-off:** Canceling scanning discards only the incomplete page. Canceling saving or failing export preserves completed pages for retry. The app prevents normal dismissal/termination with unsaved work, but memory-only sessions cannot survive crashes or forced termination. Per-page PDF output is excluded from this workflow.
 
 ## 2026-10-15 — Mock-first acquisition and native PDF export
+
+**Status:** The mock-only scope was superseded by [SANE integration](#2026-10-17--selectable-sane-backend-for-physical-documents), fixed A4 geometry by [batch configuration](#2026-10-17--document-settings-and-batch-configuration), and Document-only workflows by [all on-screen workflows](#2026-10-17--all-on-screen-workflows-and-native-processing). The mock backend remains available in Debug Mode.
 
 **Decision:** Implement the initial UI with a cancellable mock `ScannerBackend` that returns PNG page data and fractional progress. Use CoreGraphics/ImageIO to combine images in scan order into portrait A4 PDF pages. Refuse existing destination files.
 
@@ -109,6 +113,8 @@ Record only decisions that have actually been made. Add dated entries for signif
 **Trade-off:** Debug Mode must be enabled again after relaunch. Refresh prefers an available real scanner even after an explicit mock selection; select mock again to continue testing. Disable the toggle during discovery and open document sessions to keep the current document's scanner fixed. Automatic selection only enumerates devices; it never starts acquisition.
 
 ## 2026-10-17 — Document settings and batch configuration
+
+**Status:** Placeholder modes and unsupported-feature scope were superseded by [all on-screen workflows](#2026-10-17--all-on-screen-workflows-and-native-processing). Navigation is now defined by [Unified Settings navigation](#2026-10-17--unified-settings-navigation). Draft editing, session configuration, and explicit save confirmation remain in place.
 
 **Decision:** Use a native SwiftUI sidebar with Document Scan active and placeholder pages for other scan modes. Group its controls into Scan Options, Save Settings, and Application Settings, following the [Canon reference](https://ij.manual.canon/ij/webmanual/ScanUtility/W/LiDE%20120/1.1/EN/SU/su-110.html). Implement color/grayscale, common paper sizes, 150/300/600 dpi, filename prefix, destination/date folder, PDF compression, and None/Preview/Finder post-save actions. Show unsupported image corrections, OCR, and integrations as disabled placeholders.
 
