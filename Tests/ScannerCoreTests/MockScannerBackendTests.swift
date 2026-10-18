@@ -32,6 +32,15 @@ final class MockScannerBackendTests: XCTestCase {
             // Expected: a cancelled acquisition must not produce a completed page.
         }
     }
+
+    func testMockUsesSelectedPaperAspectRatioAndGrayscalePixels() async throws {
+        let options = DocumentScanOptions(colorMode: .grayscale, paperSize: .letter, resolution: .dpi600)
+        let page = try await MockScannerBackend(options: options).scanPage(number: 2) { _ in }
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(page.imageData as CFData, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        XCTAssertEqual(image.colorSpace?.model, .monochrome)
+        XCTAssertEqual(Double(image.width) / Double(image.height), 8.5 / 11, accuracy: 0.000_5)
+    }
 }
 
 private actor ProgressRecorder {

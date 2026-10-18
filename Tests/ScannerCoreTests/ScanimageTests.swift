@@ -66,6 +66,30 @@ final class ScanimageTests: XCTestCase {
         }
     }
 
+    func testSelectedDocumentOptionsChangeAcquisitionArguments() async throws {
+        let selections: [(DocumentScanOptions, [String])] = [
+            (.init(colorMode: .grayscale, paperSize: .letter, resolution: .dpi150),
+             ["--mode=Gray", "--resolution=150", "-x", "215.9", "-y", "279.4"]),
+            (.init(paperSize: .a5, resolution: .dpi600),
+             ["--mode=Color", "--resolution=600", "-x", "148", "-y", "210"]),
+            (.init(paperSize: .b5),
+             ["--mode=Color", "--resolution=300", "-x", "182", "-y", "257"])
+        ]
+        for (options, expected) in selections {
+            let runner = StubRunner(result: ScanimageResult(output: try makePNG()), deviceListing: deviceListing)
+            let backend = ScanimageScannerBackend(
+                client: ScanimageClient(executable: executable, runner: runner), device: device, options: options
+            )
+            _ = try await backend.scanPage(number: 1, progress: { _ in })
+            let calls = await runner.arguments
+            let acquisition = try XCTUnwrap(calls.last)
+            XCTAssertEqual(Array(acquisition[3...4]), Array(expected[0...1]))
+            XCTAssertTrue(acquisition.contains("--depth=8"))
+            XCTAssertTrue(acquisition.contains("--format=png"))
+            XCTAssertEqual(Array(acquisition.suffix(4)), Array(expected.suffix(4)))
+        }
+    }
+
     func testStatusDistinguishesWarmupUnknownProgressAndMeasuredAcquisition() async throws {
         let runner = StubRunner(result: ScanimageResult(output: try makePNG()), chunks: [
             "Progress: (unk", "nown)\rProgress: 0.0%\rProgress: 25.0%\r"

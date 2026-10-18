@@ -21,7 +21,7 @@ public final class DocumentSession: ObservableObject {
     @Published public private(set) var scannerDisplayName: String
 
     private var backend: any ScannerBackend
-    private let exporter: any PDFExporting
+    private var exporter: any PDFExporting
     private var scanTask: Task<Void, Never>?
     private var scanID: UUID?
 
@@ -33,9 +33,10 @@ public final class DocumentSession: ObservableObject {
 
     /// A document keeps the same scanner until it has been saved or has no pages.
     @discardableResult
-    public func selectBackend(_ backend: any ScannerBackend) -> Bool {
+    public func selectBackend(_ backend: any ScannerBackend, exporter: (any PDFExporting)? = nil) -> Bool {
         guard phase == .idle || phase == .saved else { return false }
         self.backend = backend
+        if let exporter { self.exporter = exporter }
         scannerDisplayName = backend.displayName
         errorMessage = nil
         return true
@@ -63,12 +64,12 @@ public final class DocumentSession: ObservableObject {
         phase = pages.isEmpty ? .idle : .ready
     }
 
-    public func export(to url: URL) async {
+    public func export(to url: URL, exporter exportOverride: (any PDFExporting)? = nil) async {
         guard phase == .ready, !pages.isEmpty else { return }
         phase = .exporting
         errorMessage = nil
         let exportPages = pages
-        let exporter = exporter
+        let exporter = exportOverride ?? exporter
 
         do {
             try await Task.detached(priority: .userInitiated) {
@@ -84,6 +85,32 @@ public final class DocumentSession: ObservableObject {
 
     public func clearError() {
         errorMessage = nil
+    }
+
+    /// Explicit review actions edit only this in-memory batch, never source files.
+    public func replacePage(id: UUID, with page: ScannedPage) {
+        guard phase == .ready, let index = pages.firstIndex(where: { $0.id == id }) else { return }
+        pages[index] = page
+    }
+
+    public func movePage(id: UUID, by offset: Int) {
+        guard phase == .ready, (-1...1).contains(offset), let index = pages.firstIndex(where: { $0.id == id }),
+              pages.indices.contains(index + offset) else { return }
+        pages.swapAt(index, index + offset)
+    }
+
+    public func removePage(id: UUID) {
+        guard phase == .ready else { return }
+        pages.removeAll { $0.id == id }
+        if pages.isEmpty { phase = .idle }
+    }
+
+    /// The UI requires an explicit discard confirmation before calling this.
+    public func discard() {
+        guard phase == .ready || phase == .idle else { return }
+        pages = []
+        errorMessage = nil
+        phase = .idle
     }
 
     private func beginScan() {

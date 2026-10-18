@@ -6,6 +6,31 @@ import ScannerCore
 import XCTest
 
 final class PDFExporterTests: XCTestCase {
+    func testSelectedLetterPaperCreatesLetterPagesWithoutChangingPageCountOrOrder() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("letter.pdf")
+        try PDFExporter(paperSize: .letter).export(
+            pages: [page(red: 1, green: 0, blue: 0), page(red: 0, green: 0, blue: 1)], to: url
+        )
+        let document = try XCTUnwrap(CGPDFDocument(url as CFURL))
+        XCTAssertEqual(document.numberOfPages, 2)
+        for number in 1...2 {
+            let pdfPage = try XCTUnwrap(document.page(at: number))
+            let box = pdfPage.getBoxRect(.mediaBox)
+            XCTAssertEqual(box.width, 612, accuracy: 0.001)
+            XCTAssertEqual(box.height, 792, accuracy: 0.001)
+            let pixel = try centerPixel(of: pdfPage)
+            if number == 1 {
+                XCTAssertGreaterThan(pixel.red, 240)
+                XCTAssertLessThan(pixel.blue, 15)
+            } else {
+                XCTAssertGreaterThan(pixel.blue, 240)
+                XCTAssertLessThan(pixel.red, 15)
+            }
+        }
+    }
+
     func testPDFHasOnePortraitA4PagePerScanInOriginalOrder() throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

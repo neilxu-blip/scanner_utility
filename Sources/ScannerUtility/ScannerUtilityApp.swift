@@ -7,11 +7,13 @@ struct ScannerUtilityApp: App {
     @NSApplicationDelegateAdaptor(ScannerAppDelegate.self) private var appDelegate
     @StateObject private var session = DocumentSession(backend: MockScannerBackend(), exporter: PreferredPDFExporter())
     @StateObject private var discovery = ScannerDiscovery()
+    @StateObject private var settingsStore = DocumentSettingsStore()
     @State private var showingDocument = false
+    @State private var showingAdvanced = false
 
     var body: some Scene {
         Window("Scanner Utility", id: "main") {
-            MainView(session: session, discovery: discovery, showingDocument: $showingDocument)
+            MainView(session: session, discovery: discovery, settingsStore: settingsStore, showingDocument: $showingDocument, showingAdvanced: $showingAdvanced)
                 .onAppear { appDelegate.session = session }
         }
         .windowResizability(.contentSize)
@@ -22,12 +24,12 @@ struct ScannerUtilityApp: App {
                     get: { discovery.debugModeEnabled },
                     set: { discovery.setDebugModeEnabled($0) }
                 ))
-                .disabled(showingDocument || discovery.isRefreshing)
+                .disabled(showingDocument || showingAdvanced || discovery.isRefreshing)
             }
         }
 
         Settings {
-            SettingsView()
+            SettingsView(store: settingsStore, discovery: discovery, selectionLocked: showingDocument || showingAdvanced)
         }
     }
 }

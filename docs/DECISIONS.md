@@ -107,3 +107,29 @@ Record only decisions that have actually been made. Add dated entries for signif
 **Rationale:** Daily use should show the connected scanner and make a disconnected device obvious, while retaining hardware-independent development on the MacBook Air. This supersedes the earlier mock-first launch policy.
 
 **Trade-off:** Debug Mode must be enabled again after relaunch. Refresh prefers an available real scanner even after an explicit mock selection; select mock again to continue testing. Disable the toggle during discovery and open document sessions to keep the current document's scanner fixed. Automatic selection only enumerates devices; it never starts acquisition.
+
+## 2026-10-17 — Document settings and batch configuration
+
+**Decision:** Use a native SwiftUI sidebar with Document Scan active and placeholder pages for other scan modes. Group its controls into Scan Options, Save Settings, and Application Settings, following the [Canon reference](https://ij.manual.canon/ij/webmanual/ScanUtility/W/LiDE%20120/1.1/EN/SU/su-110.html). Implement color/grayscale, common paper sizes, 150/300/600 dpi, filename prefix, destination/date folder, PDF compression, and None/Preview/Finder post-save actions. Show unsupported image corrections, OCR, and integrations as disabled placeholders.
+
+**Rationale:** Provide familiar document controls while keeping the native interface and exposing only options connected to actual behavior. Preserve A4/Color/300 defaults, timestamped names, and the existing multipage-PDF-on-Exit workflow. Single-image formats and other scan modes remain outside this version.
+
+**Configuration lifetime:** Capture acquisition options and the PDF paper size when Document starts; refuse changing that batch's backend/exporter until saved. This supersedes hard-coded A4-only geometry and fixed scan options. Save preferences are captured when opening the save dialog; compression remains read once per export. Settings edits are a draft until OK; Cancel/window close discards them and Defaults resets only the draft. Persist locally through UserDefaults, preserving the existing compression key.
+
+**Save handling:** The native save dialog remains the final approval. When enabled, its message explains the dated subfolder added under the chosen folder; create it only after Save, preserve an explicitly edited filename, and never overwrite existing files. Run Preview/Finder only after successful export; inability to launch Preview does not invalidate the saved PDF.
+
+**Trade-off:** Common options are offered without scanner-specific capability negotiation. Unsupported device settings report errors while preserving earlier pages. Mock pages approximate selected paper proportions and grayscale at a fixed lightweight resolution. OCR, corrections, custom geometry, and other formats remain future work; this is not full Canon feature parity.
+
+## 2026-10-17 — All on-screen workflows and native processing
+
+**Decision:** Implement Auto, Document, Photo, Custom, Stitch, Advanced, and General Settings with independent persisted profiles, following the [Canon settings index](https://ij.manual.canon/ij/webmanual/ScanUtility/W/LiDE%20120/1.1/EN/SU/Su-PAGE3.html). The user explicitly limited scope to on-screen modes and General Settings; physical scanner-button triggering is excluded. Advanced provides native SANE controls rather than launching Canon's proprietary Windows ScanGear driver.
+
+**Rationale:** Extend the working document flow without introducing driver/library dependencies. Shared CoreImage/Vision/ImageIO/CoreGraphics code supports local corrections, OCR/searchable PDFs, image exports, and both mock and real backends. This supersedes the prior Document-only settings scope and disabled on-screen mode placeholders. Document retains A4/Color/300 dpi and multipage export on Exit.
+
+**Workflow choices:** Auto performs one configured acquisition and uses local text-density detection to suggest PDF/JPEG, with an explicit output override and failure fallback. Photo defaults to 4 × 6 inches/600 dpi/JPEG. Image formats save one image; PDF supports a batch. Stitch uses two user-triggered scans with manual direction/overlap and a feathered seam. Native review rotates/reorders/removes in-memory pages; confirmed discard and retake paths prevent failed classification/joining from trapping unsaved sessions.
+
+**Processing and OCR:** Apply optional corrections after acquisition; black-and-white uses supported Gray acquisition plus native thresholding. Detection can reduce its analysis resolution, while output retains full image detail. Confident text/geometry controls orientation/crop changes. OCR adds an invisible CoreText layer without changing PDF raster appearance. Orientation scoring uses Vision reading direction because accurate OCR can recognize text in several orientations equally well. These are native approximations, not Canon's proprietary algorithms.
+
+**General and actions:** Share the live scanner picker and persist local OCR language, outgoing image limits, and temporary-copy folder. Save configuration is captured once per save dialog/export, while acquisition stays fixed per session. Follow-up apps, additional copies, email drafts, and text sidecars run only after saving; no automatic email sending or overwriting. Outgoing resizing creates a separate copy and never rewrites saved originals. Temporary outgoing copies are retained to honor the no-user-file-deletion rule.
+
+**Trade-offs:** Automatic classification can misread sparse/handwritten pages, corrections can affect appearance, and manual stitching requires alignment. Keep explicit overrides and conservative fallbacks. Retain memory-only sessions and enforce 128 MiB/80-million-pixel acquisition and 256 MiB stitched bitmap budgets; Canon's multi-gigabyte driver mode is not implemented. Capability negotiation, physical validation of new combinations, crash recovery, and full distribution remain separate work.

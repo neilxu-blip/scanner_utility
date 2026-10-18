@@ -7,9 +7,10 @@ enum PDFPreferences {
 
 /// Reads the preference once when saving; acquisition retains the original PNGs.
 struct PreferredPDFExporter: PDFExporting {
+    var paperSize: ScanPaperSize = .a4
+
     func export(pages: [ScannedPage], to url: URL) throws {
-        let rawValue = UserDefaults.standard.string(forKey: PDFPreferences.compressionKey) ?? ""
-        let compression = PDFCompression(rawValue: rawValue) ?? .standard
-        try PDFExporter(compression: compression).export(pages: pages, to: url)
+        let compression = DocumentSettings.load().compression
+        try PDFExporter(compression: compression, paperSize: paperSize).export(pages: pages, to: url)
     }
 }

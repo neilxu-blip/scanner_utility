@@ -4,73 +4,59 @@ Last updated: 2026-10-17
 
 ## Current checkpoint
 
-Development resumed after the version 0.4.0 break. Version 0.5.0 adds Debug Mode for mock access and automatic real-scanner selection. The latest build and 43 tests passed; validation details and remaining limitations are below.
+Version 0.7.0 implements all six on-screen scan modes and General Settings using native macOS frameworks and SANE. The final automated suite passed 103 tests with normal macOS graphics/OCR access. Native UI automation verified the main window but crashed in its own service when opening Settings; settings and interactive workflow visual checks remain pending. No agent-operated physical scans were initiated.
 
-This milestone's changes remain local and uncommitted. Before switching computers, obtain approval to commit and push, then pull and rebuild on the other Mac. Save any in-memory document before quitting; app bundles and scan artifacts are not synchronized through Git.
+The version 0.6/0.7 settings and workflow changes remain local and uncommitted. No commit, push, fetch, or remote synchronization was performed. Before switching computers, obtain approval to commit/push, then pull and rebuild on the other Mac. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
 
-## Objectives and intended architecture
+## Objectives and architecture
 
-Build a native macOS scanner utility with a SwiftUI interface and separate scanner backends. The real backend invokes SANE's `scanimage` utility; the mock backend supports development without scanner hardware.
+Native SwiftUI macOS scanner utility, targeting macOS 14+ with Swift 6. `ScannerCore` separates acquisition, session state, image processing, OCR, stitching, and export from the app UI. Real acquisition uses installed SANE `scanimage`; Mock Scanner supports hardware-independent development. No third-party packages or Docker.
 
-Use the MacBook Air for UI development and mock testing, the Mac Studio for real USB scanner integration, and GitHub to synchronize work.
+MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub synchronizes approved source changes.
 
-## Current implementation
+## Implemented workflows
 
-- Swift 6 package with separate `ScannerCore` library, SwiftUI executable, and core test target. No third-party dependencies.
-- Main window discovers SANE devices and selects a real scanner automatically. With none detected, Product name and Document are disabled. Refresh selects a newly connected scanner and preserves an existing valid real-scanner selection. Document is implemented; other scan types are visibly unavailable.
-- View → Debug Mode exposes Mock Scanner for hardware-independent testing. It starts off each launch; real devices remain preferred on discovery/Refresh and mode changes. An explicit mock selection is allowed while debugging. The toggle is disabled during discovery and open document sessions.
-- Document starts the selected scanner. Real scans default to A4, color, 300 dpi, 8 bits per RGB channel (24-bit color), with PNG output. Completed pages stay in memory; Scan appends another page without creating a PDF.
-- The UI shows Warming up during preparation, then a determinate bar and numeric percentage from SANE's acquisition reports. Unknown percentages are explicitly identified, rather than presented as warm-up. Small stderr updates are delivered immediately instead of waiting for a buffer to fill or the command to finish.
-- SANE runs as a direct subprocess without a shell. Both output streams are drained concurrently; cancellation interrupts the child, with termination fallbacks. Discovery/acquisition timeouts are 20/300 seconds. Invalid images and command failures are reported without appending an incomplete page.
-- Every page rediscovers the selected scanner's current address, matching model name and SANE backend. A changed address can be retried once if open fails before acquisition/output; partial scans are not automatically repeated. Missing or ambiguous devices leave previous pages available for retry.
-- Scanner selection is locked for a document with unsaved pages. The current scanner name is shown in both main and document windows.
-- Exit ends the batch and opens a native save dialog with a local date/time filename (`Scanned Document yyyy-MM-dd_HH-mm-ss.pdf`). Successful export creates one A4 PDF containing all pages in scan order and returns to the main window.
-- PDF export defaults to Standard JPEG compression (quality 0.75), keeping the original scanned pixel dimensions. Settings offers Standard, High quality (0.9), and Lossless. Preferences are read once at save time; source PNGs and the 300 dpi color acquisition settings are unchanged.
-- Scan cancellation preserves earlier completed pages. Save cancellation and export failure preserve the batch for retry. Existing files are never overwritten.
-- Window dismissal is disabled during the document session; the app guards termination while scanning, exporting, or holding unsaved pages.
-- `scripts/build-app.sh` builds a locally signed app bundle; `scripts/test.sh` runs automated tests. See `README.md` for commands.
-- The build script atomically replaces its generated executable so an already running app can keep its mapped binary and in-memory pages until the user saves and relaunches.
-- The prior document/PDF implementation is committed. This Debug Mode milestone is uncommitted; local `main` and the cached `origin/main` reference matched before these edits. No remote synchronization, commit, or push was performed in this milestone.
+| Mode | Behavior |
+| --- | --- |
+| Auto | One acquisition using the profile's scan area/resolution, then local text detection chooses PDF or JPEG. Users can override the output choice. |
+| Document | Default A4/Color/300 dpi. Scan adds pages; Exit saves one combined PDF by default. |
+| Photo | Default 4 × 6 inches/Color/600 dpi/JPEG; also supports PNG/TIFF or configured PDF output. |
+| Custom | Independent source, color, paper/custom dimensions, resolution, corrections, and output settings. |
+| Stitch | Two user-triggered acquisitions; adjustable direction and overlap; blended join and expanded PDF/image canvas. Retake/discard remain available if joining fails. |
+| Advanced | Native SANE setup before acquisition, including custom dimensions and local brightness/contrast/gamma adjustments. Replaces the on-screen workflow, not Canon's proprietary ScanGear driver. |
 
-## Current tasks and known issues
-
-- The user reports the scanner now handles most daily use and supplied a two-page color PDF. The old lossless export made that output 34.8 MB; compressed export is implemented and verified against that reference. Confirm preferred image quality on future physical scans. No agent-operated physical scan has been initiated.
-- If an address disappears and more than one scanner with the same model/backend is connected, automatic rebinding is refused. Serial-number-based identity is not implemented.
-- Warm-up is inferred until SANE reports acquisition, so it includes setup/calibration and is not an exact measurement of temperature or motor start. Percentages represent acquired image data, not time remaining.
-- Real scan options match the connected Canon LiDE 120's previously queried capabilities, including Color mode. Other scanner models may require different options and are unverified. Other scan types and configurable scan settings are not implemented.
-- Pages are held in memory only; crash/forced-quit recovery, OCR, page editing, and large-batch disk spooling are not implemented.
-- PDF output is portrait A4 with aspect-fit images; additional sizes and orientation controls remain future work.
-- Standard and High quality use lossy JPEG; Lossless remains available for exact pixel preservation. File size varies with document content/noise, and matching another scanner utility's size is not guaranteed.
-- The native save dialog may offer Replace for an existing file; export deliberately rejects it and asks for another name.
-- The macOS deployment target is 14, but execution on macOS 14 and Intel hardware has not been tested.
+- Real scanners are preferred on launch/Refresh. Without one, Product name and scan buttons are disabled. View → Debug Mode exposes Mock Scanner, starts off each launch, and never displaces a valid real selection unless chosen explicitly.
+- Separate persisted profiles for all six modes. Existing Document/PDF preferences migrate. Settings edits remain drafts until OK; Defaults resets only the selected profile/General draft; Cancel/close discards edits. General Product selection is shared immediately with the main window and locked during sessions.
+- General Settings: selected scanner, OCR language, outgoing image size (original/640/800/1024 pixel limit), and temporary outgoing-copy folder.
+- Native corrections: crop, enhancement, sharpening, show-through/moiré/broad gutter-shadow reduction, deskew, orientation, black-and-white threshold, brightness/contrast/gamma. Geometry changes require confident detection; scan originals are not silently downsampled.
+- PDF/JPEG/PNG/TIFF export; PDF supports Standard/High quality/Lossless and optional searchable text from local Vision OCR. Analysis may use smaller images; output retains acquisition pixel detail apart from chosen corrections/compression.
+- Optional review rotates, reorders, or removes in-memory pages after confirmation. Discard requires confirmation and does not delete saved files. Acquisition options stay fixed for a session; save preferences are captured per save attempt.
+- Timestamped names, destination/date subfolders, native save confirmation, exclusive writes, and retention of pages after canceled/failed saves. Post-save actions: Preview, Finder, another chosen app, additional folder copy, email draft, or OCR text sidecar. Email is never sent automatically; outgoing resizing never alters the saved original.
+- SANE discovery per page resolves changing USB addresses. Retry only after a failed open with no acquisition/output and a changed address. Ambiguous/missing devices retain earlier pages. Concurrent pipe draining, live SANE percentages, warm-up status, timeouts, cancellation, and incomplete-image checks remain.
+- Build script atomically replaces the generated executable; finish and save a running session before quitting/relaunching the update.
 
 ## Latest validation
 
-- 2026-10-17: `bash scripts/build-app.sh` passed; version 0.5.0 bundle passes `codesign --verify --deep --strict`. No physical scan was initiated.
-- `bash scripts/test.sh`: 43 tests passed, 0 failures. Eight new app-model tests cover disconnected/missing-SANE states, Debug Mode, real-scanner defaults, refresh/reconnection, explicit selections, and discovery failure. The prior 35 document/PDF/progress/process/timestamp/reconnection tests also pass, including compression size, JPEG streams, dimensions, lossless output, and transparent-image handling.
-- Native UI checks with the connected Canon LiDE 120: normal mode lists only Canon; enabling View → Debug Mode keeps Canon selected and adds Mock Scanner; explicitly selecting mock then refreshing selects Canon again; disabling Debug Mode hides mock. The app was left in normal mode with Canon selected. Disconnected/missing-SANE behavior was tested with simulated discovery, not a physical unplug test.
-- Reference measurement with the app's exporter: a supplied two-page PDF went from 34,814,590 bytes to 4,151,044 bytes (88.08% smaller) with Standard. High quality measured 6,095,927 bytes. Reopening confirms two A4 pages with 2480 × 3507 pixels each. Original and compressed pages were rendered with Poppler and visually compared; the source hash is unchanged. A separate compressed copy was created, never replacing the source.
-- A new regression test reproduced the delayed progress: a child that waits for acknowledgement of a small stderr update timed out with the old reader. It now completes successfully with immediate pipe reads.
-- Hardware discovery: macOS sees a Canon USB scanner; installed SANE 1.4.0 identifies Canon LiDE 120. Read-only `scanimage --help` confirms grayscale, 300 dpi, and A4-compatible geometry. The restricted shell could not discover it; enumeration/capability queries succeeded outside that shell restriction.
-- Address diagnosis: two non-scanning discovery calls identify the same Canon at a current address different from the address in the user's second-page error. The old backend reused its original address; the new backend resolves it per page.
-- App UI verification: the mock scanner displays an actual numeric percentage with a determinate bar; two pages were accumulated and the native save dialog supplied a timestamped filename. The mock PDF saved successfully. Warm-up and unknown-percentage transitions are covered by automated status tests.
-- Previous mock milestone (2026-10-15): two-page acquisition, save cancellation, combined PDF save, and session dismissal guards were manually exercised. PDFKit reopened the exported PDF and verified two A4 pages.
-- SwiftPM needs writable module caches and `--disable-sandbox` in this restricted execution environment; the scripts configure these without adding dependencies.
-- Hardware: user-reported daily use and two-page scanner output. Compression validation used existing scan images without operating the scanner. Release builds and minimum-OS testing remain unverified.
+- `bash scripts/test.sh` with normal macOS graphics/text-recognition access: **103 passed, 0 failures**. Covers all earlier behavior plus mode/profile migration, image formats and overwrite protection, custom/stitched PDF geometry, joining/order/seams/cancellation, outgoing copies, review/discard/export retry, local OCR/searchable PDF appearance, corrections, four text orientations, and selected Chinese recognition.
+- A restricted-shell run could not use CoreImage/Vision services and failed graphics/OCR tests. The normal-access run above validates those same paths. The orientation test also exposed a real scoring issue, fixed and covered by regressions before the final successful suite.
+- `bash scripts/build-app.sh`: version 0.7.0 app bundle built and passes `codesign --verify --deep --strict`.
+- Native UI: main window showed all six scan modes disabled with no scanner connected. Opening Settings crashed SkyComputerUseService (`Array.remove(at:)`), blocking automated visual checks; no Scanner Utility crash was observed in that diagnosis. Settings navigation, modal scanning/review, save dialogs, and follow-up apps still need manual testing.
+- Earlier hardware evidence: user-reported Canon LiDE 120 daily use and two-page output. Earlier compression benchmark: 34.8 MB to 4.15 MB (88% smaller), original untouched. New modes/options have not been physically validated.
 
-## Next recommended steps
+## Known limits and next steps
 
-1. Test the rebuilt app with Canon LiDE 120 selected. Obtain explicit approval before any agent-operated test scan.
-2. Compare Standard and High quality output on normal documents, including fine print, and select the preferred size/quality balance in Settings. Continue checking physical multipage scanning, cancellation, and progress; record actual results here.
-3. On the other computer, rebuild from the approved synchronized source. Enable View → Debug Mode to use Mock Scanner without hardware; real scanners are preferred when detected.
-4. Consider crash recovery and configurable scan options after the basic real-scanner document flow is validated.
-5. Refresh this file before switching computers. Commit and push only with approval.
+1. Manually exercise all modes with Mock Scanner, including Settings/General navigation, save cancellation, page editing, Stitch retake/overlap, and post-save actions. Restore native UI automation before claiming visual verification.
+2. With user approval for any agent-operated acquisition, validate new options/modes against Canon LiDE 120 on the Mac Studio. Other scanners and capability negotiation remain unverified.
+3. Auto uses text-density heuristics; sparse text/handwriting can be misclassified. Review the PDF/JPEG choice or use an explicit mode. Corrections are native approximations, not Canon algorithms; gutter reduction is illumination correction, not book dewarping. Stitching uses manual alignment, not automatic feature registration.
+4. Sessions remain in memory; crash recovery and disk spooling are absent. Acquisition is capped at 128 MiB and 80 million pixels; stitched bitmap working data is capped at 256 MiB. Some high-resolution combinations are rejected before scanning. No 4 GB/large-image ScanGear equivalent.
+5. Physical scanner-button triggering was explicitly excluded from this update. Canon ScanGear and Windows-only integrations are not bundled. Native email actions open drafts only; configured temporary outgoing copies are retained and are not automatically purged.
+6. Minimum macOS 14 and Intel execution, distribution/notarization, and release-build validation remain unverified. Refresh this file before switching computers; commit/push requires approval.
 
-## Hardware-specific requirements
+## Hardware requirements
 
-| Computer | Development requirements |
+| Computer | Requirements |
 | --- | --- |
-| MacBook Air | macOS 14+ and Xcode with Swift 6 tooling; the mock backend works without SANE or a connected scanner. |
-| Mac Studio | Same build requirements; real backend requires SANE with `scanimage`, a compatible SANE backend, and access to the real USB scanner. Canon LiDE 120 is detected with installed SANE 1.4.0 on the current computer. |
+| MacBook Air | macOS 14+, Xcode with Swift 6; enable Debug Mode for Mock Scanner. No SANE/hardware needed for mock acquisition. |
+| Mac Studio | Same build requirements; installed `scanimage`, compatible SANE backend, and USB access for real scanning. Prior integration used SANE 1.4.0 and Canon LiDE 120. |
 
-Executable discovery checks standard Apple Silicon/Intel Homebrew locations, then PATH. The current SANE installation is managed by Homebrew. Hardware discovery does not establish that physical acquisition works; record that only after an approved test. Keep local device addresses and user paths out of committed documentation.
+Executable discovery checks standard Apple Silicon/Intel Homebrew locations, then PATH. Hardware discovery never acquires a page. CoreImage/Vision tests need ordinary macOS graphics/service access; the scripts configure writable SwiftPM caches and disable the nested package sandbox. Keep machine-specific paths, addresses, and private artifacts out of Git.

@@ -5,17 +5,14 @@ import SwiftUI
 struct MainView: View {
     @ObservedObject var session: DocumentSession
     @ObservedObject var discovery: ScannerDiscovery
+    @ObservedObject var settingsStore: DocumentSettingsStore
     @Binding var showingDocument: Bool
+    @Binding var showingAdvanced: Bool
     @State private var showingInstructions = false
-
-    private let modes: [ScanMode] = [
-        .init(name: "Auto", symbol: "sparkles.rectangle.stack"),
-        .init(name: "Document", symbol: "doc.text", available: true),
-        .init(name: "Photo", symbol: "photo"),
-        .init(name: "Custom", symbol: "slider.horizontal.3"),
-        .init(name: "Stitch", symbol: "rectangle.on.rectangle"),
-        .init(name: "Advanced", symbol: "scanner")
-    ]
+    @State private var activeMode = ScanWorkflowMode.document
+    @State private var activeProfile = DocumentSettings()
+    @State private var pendingAdvanced: DocumentSettings?
+    @State private var startError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 25) {
@@ -70,7 +67,7 @@ struct MainView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else if discovery.selectedDevice != nil {
-                Text("Real scanner · A4 · Color · 300 dpi. Document starts a physical scan.")
+                Text("Real scanner · \(settingsSummary). Document starts a physical scan.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -80,36 +77,42 @@ struct MainView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            if let startError {
+                Label(startError, systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            }
 
             HStack(spacing: 10) {
-                ForEach(modes) { mode in
+                ForEach(ScanWorkflowMode.allCases) { mode in
                     Button {
-                        guard let backend = discovery.selectedBackend,
-                              session.selectBackend(backend) else { return }
-                        showingDocument = true
-                        session.start()
+                        if mode == .advanced {
+                            showingAdvanced = true
+                        } else {
+                            startScan(mode)
+                        }
                     } label: {
                         VStack(spacing: 13) {
                             Image(systemName: mode.symbol)
                                 .font(.system(size: 27, weight: .regular))
                                 .frame(height: 34)
-                            Text(mode.name)
-                                .font(.system(size: 12, weight: mode.available ? .semibold : .regular))
+                            Text(mode.buttonTitle)
+                                .font(.system(size: 12, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 107)
-                        .foregroundStyle(mode.available ? Color.accentColor : Color.secondary.opacity(0.65))
-                        .background(mode.available ? Color.accentColor.opacity(0.07) : Color(nsColor: .controlBackgroundColor),
+                        .foregroundStyle(discovery.hasAvailableScanner ? Color.accentColor : Color.secondary.opacity(0.65))
+                        .background(Color.accentColor.opacity(0.07),
                                     in: RoundedRectangle(cornerRadius: 10))
                         .overlay {
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(mode.available ? Color.accentColor.opacity(0.45) : Color.primary.opacity(0.08), lineWidth: 1)
+                                .stroke(Color.accentColor.opacity(0.45), lineWidth: 1)
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(!mode.available || discovery.isRefreshing || !discovery.hasAvailableScanner)
-                    .help(mode.available ? "Scan pages into one PDF" : "This scan type is not available yet")
-                    .accessibilityLabel(mode.available ? "Document" : "\(mode.name), not available yet")
+                    .disabled(discovery.isRefreshing || !discovery.hasAvailableScanner)
+                    .help("Start \(mode.displayName)")
+                    .accessibilityLabel(mode.buttonTitle)
                 }
             }
 
@@ -117,9 +120,9 @@ struct MainView: View {
                 Image(systemName: "info.circle")
                     .foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Start with Document")
+                    Text("Choose a scan mode")
                         .font(.system(size: 12, weight: .medium))
-                    Text("Scan each page, then choose Exit to save one combined PDF.")
+                    Text("Document collects pages into one PDF. Photo saves an image; Stitch joins two overlapping scans.")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -143,20 +146,53 @@ struct MainView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .task { await discovery.refresh() }
         .sheet(isPresented: $showingDocument) {
-            DocumentView(session: session) { showingDocument = false }
+            DocumentView(session: session, settingsStore: settingsStore, mode: activeMode, profile: activeProfile) { showingDocument = false }
+        }
+        .sheet(isPresented: $showingAdvanced, onDismiss: {
+            if let profile = pendingAdvanced {
+                pendingAdvanced = nil
+                startScan(.advanced, profile: profile)
+            }
+        }) {
+            AdvancedScanView(profile: settingsStore.settings(for: .advanced), scannerName: discovery.selectedScannerName) { profile in
+                pendingAdvanced = profile
+                showingAdvanced = false
+            } onCancel: {
+                showingAdvanced = false
+            }
         }
         .sheet(isPresented: $showingInstructions) {
             InstructionsView()
         }
     }
 
-}
+    private var settingsSummary: String {
+        let options = settingsStore.settings.scanOptions
+        return "\(options.paperSize.displayName) · \(options.colorMode.displayName) · \(options.resolution.displayName)"
+    }
 
-private struct ScanMode: Identifiable {
-    let name: String
-    let symbol: String
-    var available = false
-    var id: String { name }
+    private func startScan(_ mode: ScanWorkflowMode, profile override: DocumentSettings? = nil) {
+        var profile = override ?? settingsStore.settings(for: mode)
+        // Auto classifies one acquisition made with this profile's scan area and
+        // resolution. There is no extra preview scan or hidden option override.
+        profile.processing.blackAndWhite = profile.processing.blackAndWhite || profile.scanOptions.colorMode == .blackAndWhite
+        do {
+            try profile.scanOptions.validate()
+            guard let backend = discovery.backend(options: profile.scanOptions) else { return }
+            let language = settingsStore.general.recognitionLanguage
+            let configured = ProcessingScannerBackend(backend: backend, processor: ImageProcessor(
+                options: profile.processing, recognitionLanguages: language.isEmpty ? [] : [language]
+            ))
+            guard session.selectBackend(configured) else { return }
+            startError = nil
+            activeMode = mode
+            activeProfile = profile
+            showingDocument = true
+            session.start()
+        } catch {
+            startError = error.localizedDescription
+        }
+    }
 }
 
 struct InstructionsView: View {
@@ -164,9 +200,9 @@ struct InstructionsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Scan a document")
+            Text("Scanning with Scanner Utility")
                 .font(.title2.bold())
-            Text("1. Choose Document to scan the first page.\n\n2. When it finishes, place your next page and choose Scan. Repeat for each page.\n\n3. Choose Exit, then select where to save the combined PDF.")
+            Text("Auto detects a document or photo locally after one scan. Document collects pages until Exit saves a combined PDF. Photo saves JPEG, PNG, or TIFF. Custom uses your own settings. Stitch scans two overlapping halves and joins them. Advanced lets you adjust native SANE settings before scanning.")
                 .fixedSize(horizontal: false, vertical: true)
             Text("Connect your scanner and click Refresh if needed. Document and each subsequent Scan start the selected scanner. For testing without hardware, enable View → Debug Mode and choose Mock Scanner. Pages stay in the session until you save; canceling a scan keeps earlier pages.")
                 .font(.callout)
@@ -179,40 +215,5 @@ struct InstructionsView: View {
         }
         .padding(28)
         .frame(width: 440)
-    }
-}
-
-struct SettingsView: View {
-    @AppStorage(PDFPreferences.compressionKey) private var compression = PDFCompression.standard.rawValue
-
-    var body: some View {
-        Form {
-            LabeledContent("Scanner", value: "Choose in the main window")
-            LabeledContent("Output", value: "One PDF per document session")
-            LabeledContent("Page size", value: "A4")
-            LabeledContent("Real scan settings", value: "Color · 300 dpi · 8-bit per channel")
-            Picker("PDF quality", selection: $compression) {
-                Text("Standard (smaller files)").tag(PDFCompression.standard.rawValue)
-                Text("High quality").tag(PDFCompression.highQuality.rawValue)
-                Text("Lossless (large files)").tag(PDFCompression.lossless.rawValue)
-            }
-            Text(compressionDescription)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Text("Real scanners use the installed SANE scanimage utility. Click Refresh after connecting your USB scanner. Enable View → Debug Mode to make Mock Scanner available for testing without hardware.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-        .formStyle(.grouped)
-        .padding()
-        .frame(width: 480)
-    }
-
-    private var compressionDescription: String {
-        switch PDFCompression(rawValue: compression) ?? .standard {
-        case .standard: "Smaller PDFs with slight image quality loss. Page resolution and color are preserved."
-        case .highQuality: "Less compression for fine details, with larger PDF files. Page resolution and color are preserved."
-        case .lossless: "Preserves the original image pixels and creates much larger PDFs."
-        }
     }
 }

@@ -35,11 +35,15 @@ final class ScannerDiscovery: ObservableObject {
     }
 
     var selectedBackend: (any ScannerBackend)? {
+        backend(options: DocumentScanOptions())
+    }
+
+    func backend(options: DocumentScanOptions) -> (any ScannerBackend)? {
         guard !isRefreshing else { return nil }
         if let device = selectedDevice, let client {
-            return ScanimageScannerBackend(client: client, device: device)
+            return ScanimageScannerBackend(client: client, device: device, options: options)
         }
-        return isMockSelected ? MockScannerBackend() : nil
+        return isMockSelected ? MockScannerBackend(options: options) : nil
     }
 
     func setDebugModeEnabled(_ enabled: Bool) {

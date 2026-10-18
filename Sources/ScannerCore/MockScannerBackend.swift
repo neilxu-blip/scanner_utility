@@ -6,8 +6,11 @@ import ImageIO
 /// Hardware-free scans with reproducible page contents and simulated acquisition progress.
 public struct MockScannerBackend: ScannerBackend {
     public let displayName = "Mock Scanner"
+    private let options: DocumentScanOptions
 
-    public init() {}
+    public init(options: DocumentScanOptions = .init()) {
+        self.options = options
+    }
 
     public func scanPage(
         number: Int,
@@ -21,31 +24,35 @@ public struct MockScannerBackend: ScannerBackend {
             await progress(Double(step) / 25)
         }
 
-        let data = try Self.renderPage(number: number)
+        let data = try Self.renderPage(number: number, options: options)
         try Task.checkCancellation()
         await progress(1)
         return ScannedPage(imageData: data)
     }
 
-    private static func renderPage(number: Int) throws -> Data {
+    private static func renderPage(number: Int, options: DocumentScanOptions) throws -> Data {
         let width = 1_240
-        let height = 1_754
+        let height = Int((Double(width) * options.effectiveHeightMillimeters / options.effectiveWidthMillimeters).rounded())
+        let grayscale = options.colorMode != .color
         guard let context = CGContext(
             data: nil,
             width: width,
             height: height,
             bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            bytesPerRow: width * (grayscale ? 1 : 4),
+            space: grayscale ? CGColorSpaceCreateDeviceGray() : CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: grayscale ? CGImageAlphaInfo.none.rawValue : CGImageAlphaInfo.premultipliedLast.rawValue
         ) else {
             throw MockScanError.renderingFailed
         }
 
-        context.setFillColor(CGColor(red: 0.99, green: 0.985, blue: 0.97, alpha: 1))
+        context.setFillColor(grayscale ? CGColor(gray: 0.985, alpha: 1) : CGColor(red: 0.99, green: 0.985, blue: 0.97, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        // Reuse the demo layout while making the output image match the chosen
+        // paper. Mock output stays lightweight rather than allocating 600 dpi pages.
+        context.scaleBy(x: 1, y: CGFloat(height) / 1_754)
         context.setFillColor(CGColor(gray: 0.93, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: 8, height: height))
+        context.fill(CGRect(x: 0, y: 0, width: 8, height: 1_754))
 
         drawText("NORTHSTAR", size: 24, x: 106, y: 1_606, context: context)
         drawText("Project notes", size: 54, x: 102, y: 1_498, context: context)

@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import Foundation
 import ImageIO
 
@@ -20,12 +21,21 @@ public enum PDFCompression: String, CaseIterable, Sendable {
     }
 }
 
-/// Creates one portrait A4 PDF page per scan, preserving acquisition order.
+/// Creates one portrait PDF page per scan at the selected paper size, preserving acquisition order.
 public struct PDFExporter: PDFExporting {
     private let compression: PDFCompression
+    private let pageSize: CGSize
+    private let searchable: Bool
+    private let recognitionLanguages: [String]
 
-    public init(compression: PDFCompression = .standard) {
+    public init(
+        compression: PDFCompression = .standard, paperSize: ScanPaperSize = .a4,
+        searchable: Bool = false, recognitionLanguages: [String] = ["en-US"], pageSize: CGSize? = nil
+    ) {
         self.compression = compression
+        self.pageSize = pageSize ?? paperSize.pdfSize
+        self.searchable = searchable
+        self.recognitionLanguages = recognitionLanguages
     }
 
     public func export(pages: [ScannedPage], to url: URL) throws {
@@ -36,7 +46,9 @@ public struct PDFExporter: PDFExporting {
 
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data) else { throw PDFExportError.creationFailed }
-        var mediaBox = CGRect(x: 0, y: 0, width: 595.276, height: 841.89)
+        guard pageSize.width.isFinite, pageSize.height.isFinite, pageSize.width > 0, pageSize.height > 0,
+              pageSize.width <= 14_400, pageSize.height <= 14_400 else { throw PDFExportError.creationFailed }
+        var mediaBox = CGRect(origin: .zero, size: pageSize)
         guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
             throw PDFExportError.creationFailed
         }
@@ -48,6 +60,7 @@ public struct PDFExporter: PDFExporting {
                     throw PDFExportError.invalidPage(index + 1)
                 }
                 let image = try imageForPDF(original, pageNumber: index + 1)
+                let recognized = searchable ? try ScanTextRecognizer.recognize(page, languages: recognitionLanguages) : []
 
                 context.beginPDFPage(nil)
                 context.setFillColor(CGColor(gray: 1, alpha: 1))
@@ -61,6 +74,7 @@ public struct PDFExporter: PDFExporting {
                     height: size.height
                 )
                 context.draw(image, in: bounds)
+                drawSearchableText(recognized, imageBounds: bounds, in: context)
                 context.endPDFPage()
             }
         } catch {
@@ -71,6 +85,35 @@ public struct PDFExporter: PDFExporting {
 
         // The exclusive write also protects against a file appearing after the check above.
         try (data as Data).write(to: url, options: .withoutOverwriting)
+    }
+
+    private func drawSearchableText(_ recognized: [RecognizedScanText], imageBounds: CGRect, in context: CGContext) {
+        for item in recognized {
+            let bounds = CGRect(
+                x: imageBounds.minX + item.bounds.minX * imageBounds.width,
+                y: imageBounds.minY + item.bounds.minY * imageBounds.height,
+                width: item.bounds.width * imageBounds.width,
+                height: item.bounds.height * imageBounds.height
+            )
+            guard bounds.width > 0, bounds.height > 0 else { continue }
+            // CoreText supplies Unicode font mapping for search/copy, including
+            // fallback fonts. Invisible text does not alter the scanned appearance.
+            let font = CTFontCreateWithName("Helvetica" as CFString, bounds.height, nil)
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: item.text, attributes: [
+                NSAttributedString.Key(kCTFontAttributeName as String): font,
+                NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true
+            ]))
+            var ascent: CGFloat = 0
+            var descent: CGFloat = 0
+            let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
+            guard width > 0, ascent + descent > 0 else { continue }
+            context.saveGState()
+            context.setTextDrawingMode(.invisible)
+            context.textMatrix = CGAffineTransform(scaleX: bounds.width / width, y: bounds.height / (ascent + descent))
+            context.textPosition = CGPoint(x: bounds.minX, y: bounds.minY + descent * bounds.height / (ascent + descent))
+            CTLineDraw(line, context)
+            context.restoreGState()
+        }
     }
 
     private func imageForPDF(_ original: CGImage, pageNumber: Int) throws -> CGImage {

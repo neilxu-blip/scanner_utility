@@ -70,10 +70,12 @@ public struct ScanimageScannerBackend: ScannerBackend {
     public var displayName: String { device.name }
     public let device: SANEDevice
     private let client: ScanimageClient
+    private let options: DocumentScanOptions
 
-    public init(client: ScanimageClient, device: SANEDevice) {
+    public init(client: ScanimageClient, device: SANEDevice, options: DocumentScanOptions = .init()) {
         self.client = client
         self.device = device
+        self.options = options
     }
 
     public func scanPage(
@@ -91,6 +93,7 @@ public struct ScanimageScannerBackend: ScannerBackend {
     public func scanPage(
         number: Int, status: @escaping @Sendable (ScannerStatus) async -> Void
     ) async throws -> ScannedPage {
+        try options.validate()
         let (updates, continuation) = AsyncStream<ScannerStatus>.makeStream()
         let parser = ScanimageProgressParser()
         let reporting = Task {
@@ -136,13 +139,21 @@ public struct ScanimageScannerBackend: ScannerBackend {
         return try await client.runner.run(
             executable: client.executable,
             arguments: ["--device-name=\(current.id)", "--format=png", "--progress",
-                        "--mode=Color", "--resolution=300", "--depth=8",
-                        "-l", "0", "-t", "0", "-x", "210", "-y", "297"],
+                        "--mode=\(options.colorMode.scanimageMode)",
+                        "--resolution=\(options.resolution.rawValue)", "--depth=8",
+                        "-l", "0", "-t", "0", "-x", millimeters(options.effectiveWidthMillimeters),
+                        "-y", millimeters(options.effectiveHeightMillimeters)],
             timeout: 300,
             onDiagnostic: { bytes in
                 for value in parser.appendStatuses(bytes) { continuation.yield(value) }
             }
         )
+    }
+
+    private func millimeters(_ value: Double) -> String {
+        // scanimage expects a dot regardless of the user's locale. Avoid a
+        // decimal suffix for integral dimensions to keep existing commands stable.
+        value.rounded() == value ? String(Int(value)) : String(value)
     }
 }
 
