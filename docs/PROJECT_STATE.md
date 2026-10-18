@@ -4,9 +4,9 @@ Last updated: 2026-10-17
 
 ## Current checkpoint
 
-Version 0.7.0 implements all six on-screen scan modes and General Settings using native macOS frameworks and SANE. The final automated suite passed 103 tests with normal macOS graphics/OCR access. Native UI automation verified the main window but crashed in its own service when opening Settings; settings and interactive workflow visual checks remain pending. No agent-operated physical scans were initiated.
+Version 0.7.0 implements all six on-screen scan modes and General Settings using native macOS frameworks and SANE. The latest layout update places General and all scan modes in one persistent left sidebar, with a fixed page header and action buttons on the right. General controls are grouped into Scanner, Text Recognition, and Outgoing Images. The app rebuild and 14 settings/profile tests passed; final visual checks remain pending because native UI inspection is unavailable. No agent-operated physical scans were initiated.
 
-The version 0.6/0.7 settings and workflow changes remain local and uncommitted. No commit, push, fetch, or remote synchronization was performed. Before switching computers, obtain approval to commit/push, then pull and rebuild on the other Mac. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
+The Settings layout changes remain local and uncommitted on top of the existing committed workflows. No commit, push, fetch, or remote synchronization was performed for this update. Before switching computers, obtain approval to commit/push, then pull and rebuild on the other Mac. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
 
 ## Objectives and architecture
 
@@ -37,10 +37,11 @@ MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub 
 
 ## Latest validation
 
-- `bash scripts/test.sh` with normal macOS graphics/text-recognition access: **103 passed, 0 failures**. Covers all earlier behavior plus mode/profile migration, image formats and overwrite protection, custom/stitched PDF geometry, joining/order/seams/cancellation, outgoing copies, review/discard/export retry, local OCR/searchable PDF appearance, corrections, four text orientations, and selected Chinese recognition.
+- Settings sidebar update: `swift test` with the same cache/sandbox flags as `scripts/test.sh` and `--filter 'DocumentSettingsTests|ScanProfileSettingsTests'`: **14 passed, 0 failures**. Existing tests cover preference drafts, defaults, independent profiles, migration, and General persistence. These are model tests, not interactive navigation tests. `git diff --check` also passed.
+- Previous full workflow validation: `bash scripts/test.sh` with normal macOS graphics/text-recognition access: **103 passed, 0 failures**. Covers all earlier behavior plus mode/profile migration, image formats and overwrite protection, custom/stitched PDF geometry, joining/order/seams/cancellation, outgoing copies, review/discard/export retry, local OCR/searchable PDF appearance, corrections, four text orientations, and selected Chinese recognition. The full graphics/OCR suite was not rerun for this layout-only update.
 - A restricted-shell run could not use CoreImage/Vision services and failed graphics/OCR tests. The normal-access run above validates those same paths. The orientation test also exposed a real scoring issue, fixed and covered by regressions before the final successful suite.
-- `bash scripts/build-app.sh`: version 0.7.0 app bundle built and passes `codesign --verify --deep --strict`.
-- Native UI: main window showed all six scan modes disabled with no scanner connected. Opening Settings crashed SkyComputerUseService (`Array.remove(at:)`), blocking automated visual checks; no Scanner Utility crash was observed in that diagnosis. Settings navigation, modal scanning/review, save dialogs, and follow-up apps still need manual testing.
+- `bash scripts/build-app.sh`: version 0.7.0 app bundle rebuilt with the new Settings layout and passes `codesign --verify --deep --strict`.
+- Native UI: the latest inspection attempt failed with “native pipe closed before response,” so the sidebar layout/navigation needs manual visual checking. Earlier inspection showed all six main-window scan modes disabled with no scanner connected; opening Settings crashed SkyComputerUseService (`Array.remove(at:)`), with no Scanner Utility crash observed. Modal scanning/review, save dialogs, and follow-up apps still need manual testing.
 - Earlier hardware evidence: user-reported Canon LiDE 120 daily use and two-page output. Earlier compression benchmark: 34.8 MB to 4.15 MB (88% smaller), original untouched. New modes/options have not been physically validated.
 
 ## Known limits and next steps

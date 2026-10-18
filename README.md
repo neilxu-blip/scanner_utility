@@ -32,7 +32,7 @@ Stitching needs matching scan dimensions and carefully aligned overlapping conte
 
 ## Settings
 
-The settings layout follows [Canon's settings index](https://ij.manual.canon/ij/webmanual/ScanUtility/W/LiDE%20120/1.1/EN/SU/Su-PAGE3.html), adapted to macOS. Each of the six modes has an independent profile.
+The settings controls follow [Canon's settings index](https://ij.manual.canon/ij/webmanual/ScanUtility/W/LiDE%20120/1.1/EN/SU/Su-PAGE3.html), adapted to macOS. A persistent left sidebar contains **General** and all six modes under **Scanning**; each mode has an independent profile. Select a page to edit its controls on the right. Defaults, Cancel, and OK stay visible while scrolling. General groups shared controls into Scanner, Text Recognition, and Outgoing Images.
 
 - **Scan Options:** source, color/grayscale/black-and-white, common photo/paper sizes or custom dimensions, and resolution. Optional native crop, enhancement, sharpening, show-through/moiré/gutter-shadow reduction, deskew, orientation, and tone adjustments apply after acquisition. Magazine recommends moiré reduction. All pages keep the acquisition options captured when the session starts.
 - **Save Settings:** PDF/JPEG/PNG/TIFF or automatic PDF/JPEG choice, timestamped filename prefix, destination, optional `yyyy_MM_dd` subfolder, PDF compression, JPEG quality, searchable PDF, and review controls. The native save dialog confirms the name and folder; date folders are created only after approval. Existing files are never overwritten.

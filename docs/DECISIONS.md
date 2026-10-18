@@ -133,3 +133,9 @@ Record only decisions that have actually been made. Add dated entries for signif
 **General and actions:** Share the live scanner picker and persist local OCR language, outgoing image limits, and temporary-copy folder. Save configuration is captured once per save dialog/export, while acquisition stays fixed per session. Follow-up apps, additional copies, email drafts, and text sidecars run only after saving; no automatic email sending or overwriting. Outgoing resizing creates a separate copy and never rewrites saved originals. Temporary outgoing copies are retained to honor the no-user-file-deletion rule.
 
 **Trade-offs:** Automatic classification can misread sparse/handwritten pages, corrections can affect appearance, and manual stitching requires alignment. Keep explicit overrides and conservative fallbacks. Retain memory-only sessions and enforce 128 MiB/80-million-pixel acquisition and 256 MiB stitched bitmap budgets; Canon's multi-gigabyte driver mode is not implemented. Capability negotiation, physical validation of new combinations, crash recovery, and full distribution remain separate work.
+
+## 2026-10-17 — Unified Settings navigation
+
+**Decision:** Replace the top Scanning/General switch with one persistent native sidebar: General followed by the six profiles under Scanning. Keep the selected page's heading and Defaults/Cancel/OK visible while its controls scroll. Group General controls by Scanner, Text Recognition, and Outgoing Images.
+
+**Rationale and trade-off:** All destinations remain visible and one click away, following the user's preference for navigation on the left. This removes the extra section-switching step while using some horizontal space for the sidebar on General. Drafts, per-profile defaults, and OK/Cancel behavior remain unchanged.

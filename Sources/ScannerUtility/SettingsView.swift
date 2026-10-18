@@ -16,81 +16,31 @@ struct SettingsView: View {
     @State private var windowNumber: Int?
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: section == .scanning ? "scanner" : "gearshape")
-                    .font(.title2)
-                    .foregroundStyle(.tint)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Scan Settings").font(.title3.bold())
-                    Text("Choose how each scan mode acquires, saves, and opens your scans.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Picker("Settings section", selection: $section) {
-                    Text("Scanning").tag(SettingsSection.scanning)
-                    Text("General").tag(SettingsSection.general)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 220)
-            }
-            .padding(20)
+        HStack(spacing: 0) {
+            sidebar
             Divider()
-
-            if section == .scanning {
-                HStack(spacing: 0) {
-                    List(ScanWorkflowMode.allCases, id: \.self, selection: $selection) { mode in
-                        Label(mode.displayName, systemImage: mode.symbol)
-                            .padding(.vertical, 9)
-                            .tag(mode)
-                    }
-                    .listStyle(.sidebar)
-                    .frame(width: 185)
-                    .accessibilityLabel("Scan settings categories")
-                    Divider()
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 18) {
-                            Text(selection.displayName).font(.title2.bold())
-                            Text(modeDescription).font(.callout).foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                pageHeader
+                Divider()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        if section == .scanning {
                             scanOptions
                             saveSettings
                             applicationSettings
+                        } else {
+                            generalSettings
                         }
-                        .padding(22)
-                    }
-                }
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        Text("General Settings").font(.title2.bold())
-                        generalSettings
                     }
                     .padding(24)
-                    .frame(maxWidth: 800, alignment: .leading)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                // Start each newly selected page at its heading and first controls.
+                .id(destination.wrappedValue)
+                Divider()
+                footer
             }
-
-            Divider()
-            HStack {
-                Link("Instructions", destination: instructionsURL)
-                Spacer()
-                Button("Defaults") {
-                    if section == .general { generalDraft = GeneralSettings() }
-                    else { draft = store.defaultSettings(for: selection) }
-                }
-                Button("Cancel") { closeWindow() }
-                    .keyboardShortcut(.cancelAction)
-                Button("OK") {
-                    drafts[selection] = draft
-                    for (mode, profile) in drafts { store.save(profile, for: mode) }
-                    store.saveGeneral(generalDraft)
-                    closeWindow()
-                }
-                .keyboardShortcut(.defaultAction)
-            }
-            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 980, height: 780)
         .background(Color(nsColor: .windowBackgroundColor))
@@ -112,6 +62,103 @@ struct SettingsView: View {
             // SwiftUI can reuse Settings windows without another onAppear.
             reloadDrafts()
         }
+    }
+
+    private var destination: Binding<SettingsDestination?> {
+        Binding(
+            get: { section == .general ? .general : .scan(selection) },
+            set: { destination in
+                switch destination {
+                case .general:
+                    section = .general
+                case .scan(let mode):
+                    selection = mode
+                    section = .scanning
+                case nil:
+                    break // Keep one page selected when clicking empty sidebar space.
+                }
+            }
+        )
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Settings")
+                .font(.title2.bold())
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 18)
+
+            List(selection: destination) {
+                Label("General", systemImage: "gearshape")
+                    .padding(.vertical, 7)
+                    .tag(SettingsDestination.general)
+
+                Section("Scanning") {
+                    ForEach(ScanWorkflowMode.allCases) { mode in
+                        Label(mode.displayName, systemImage: mode.symbol)
+                            .padding(.vertical, 7)
+                            .tag(SettingsDestination.scan(mode))
+                    }
+                }
+            }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .accessibilityLabel("Settings navigation")
+
+            Link(destination: instructionsURL) {
+                Label("Instructions", systemImage: "questionmark.circle")
+            }
+            .padding(20)
+        }
+        .frame(width: 210)
+        .frame(maxHeight: .infinity)
+        .background(.quaternary.opacity(0.35))
+    }
+
+    private var pageHeader: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: section == .general ? "gearshape" : selection.symbol)
+                .font(.system(size: 23, weight: .medium))
+                .foregroundStyle(.tint)
+                .frame(width: 46, height: 46)
+                .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 11))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(section == .general ? "General" : selection.displayName)
+                    .font(.title2.bold())
+                Text(section == .general
+                     ? "Choose your scanner and shared preferences for all scan modes."
+                     : modeDescription)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(24)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 12) {
+            Button("Defaults") {
+                if section == .general { generalDraft = GeneralSettings() }
+                else { draft = store.defaultSettings(for: selection) }
+            }
+            .help(section == .general ? "Restore defaults for General settings" : "Restore defaults for \(selection.displayName)")
+            Spacer()
+            Button("Cancel") { closeWindow() }
+                .keyboardShortcut(.cancelAction)
+            Button("OK") {
+                drafts[selection] = draft
+                for (mode, profile) in drafts { store.save(profile, for: mode) }
+                store.saveGeneral(generalDraft)
+                closeWindow()
+            }
+            .keyboardShortcut(.defaultAction)
+        }
+        .padding(16)
     }
 
     private var scanOptions: some View {
@@ -286,8 +333,9 @@ struct SettingsView: View {
         }
     }
 
+    @ViewBuilder
     private var generalSettings: some View {
-        GroupBox("General Settings") {
+        GroupBox("Scanner") {
             VStack(alignment: .leading, spacing: 18) {
                 settingsRow("Product name") {
                     HStack {
@@ -312,14 +360,12 @@ struct SettingsView: View {
                     Text("Product selection is shared with the main window and changes immediately. Mock Scanner appears only in View → Debug Mode.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Divider()
-                settingsRow("Send image size") {
-                    Picker("Send image size", selection: $generalDraft.sendImageSize) {
-                        ForEach(SendImageSize.allCases, id: \.self) { size in Text(size.displayName).tag(size) }
-                    }.labelsHidden()
-                }
-                Text("Limits the longest side of image copies sent to another application or attached to an email draft. Saved originals and PDFs keep their dimensions.")
-                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(16)
+        }
+
+        GroupBox("Text Recognition") {
+            VStack(alignment: .leading, spacing: 13) {
                 settingsRow("Document language") {
                     Picker("Document language", selection: $generalDraft.recognitionLanguage) {
                         Text("Automatic").tag("")
@@ -333,6 +379,19 @@ struct SettingsView: View {
                     }.labelsHidden()
                 }
                 Text("Used for searchable PDFs, text export, and text orientation detection.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(16)
+        }
+
+        GroupBox("Outgoing Images") {
+            VStack(alignment: .leading, spacing: 13) {
+                settingsRow("Send image size") {
+                    Picker("Send image size", selection: $generalDraft.sendImageSize) {
+                        ForEach(SendImageSize.allCases, id: \.self) { size in Text(size.displayName).tag(size) }
+                    }.labelsHidden()
+                }
+                Text("Limits the longest side of image copies sent to another application or attached to an email draft. Saved originals and PDFs keep their dimensions.")
                     .font(.caption).foregroundStyle(.secondary)
                 settingsRow("Temporary folder") {
                     folderRow(generalDraft.temporaryDirectory) {
@@ -451,6 +510,11 @@ struct SettingsView: View {
 }
 
 private enum SettingsSection { case scanning, general }
+
+private enum SettingsDestination: Hashable {
+    case general
+    case scan(ScanWorkflowMode)
+}
 
 private struct SettingsWindowReader: NSViewRepresentable {
     let onWindow: @MainActor (NSWindow) -> Void
