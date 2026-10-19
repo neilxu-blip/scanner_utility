@@ -145,3 +145,11 @@ Entries describe the decisions at their milestone; current behavior and validati
 **Decision:** Replace the top Scanning/General switch with one persistent native sidebar: General followed by the six profiles under Scanning. Keep the selected page's heading and Defaults/Cancel/OK visible while its controls scroll. Group General controls by Scanner, Text Recognition, and Outgoing Images.
 
 **Rationale and trade-off:** All destinations remain visible and one click away, following the user's preference for navigation on the left. This removes the extra section-switching step while using some horizontal space for the sidebar on General. Drafts, per-profile defaults, and OK/Cancel behavior remain unchanged.
+
+## 2026-10-19 — Publish the current project through GitHub first
+
+**Decision:** Use the existing GitHub repository to share the current source and documentation before pursuing Mac App Store distribution. Keep the implemented features available without purchase restrictions at this stage.
+
+**Rationale:** The user chose GitHub as the immediate publication path for their first macOS app after discussing App Store packaging and sandbox requirements. This lets the existing scanner workflows be shared while those distribution questions remain unresolved.
+
+**Trade-off:** Real scanning still requires separately installed SANE. Source publication does not provide a notarized installer or establish support for untested scanners. App Store distribution and a one-time Pro purchase remain future possibilities; no price, paid feature boundary, project license, or bundled-SANE distribution approach has been selected.

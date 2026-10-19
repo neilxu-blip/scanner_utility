@@ -2,6 +2,8 @@
 
 Scan documents and photos on macOS, combine pages into one PDF, and save scans as images. Current version: **0.7.0**. Requires **macOS 14 or later** and a compatible scanner configured with SANE. Canon LiDE 120 has been used successfully for document scanning; other scanners and the newer scan modes still need hardware testing.
 
+The project is currently shared through [GitHub](https://github.com/neilxu-blip/scanner_utility). All implemented features are available in the current build; there are no in-app purchases. Mac App Store distribution is a future possibility. SANE must be installed separately for real scanning.
+
 ## Open the app
 
 If the app has already been built, double-click **Scanner Utility.app** in the project's `.build` folder. Because that folder is hidden, in Finder choose **Go → Go to Folder…** (Shift–Command–G), enter your project folder's path followed by `/.build`, and open the app.

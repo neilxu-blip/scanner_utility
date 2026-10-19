@@ -1,12 +1,14 @@
 # Project state
 
-Last updated: 2026-10-17
+Last updated: 2026-10-19
 
 ## Current checkpoint
 
 Version 0.7.0 implements all six on-screen scan modes and General Settings using native macOS frameworks and SANE. The latest layout update places General and all scan modes in one persistent left sidebar, with a fixed page header and action buttons on the right. General controls are grouped into Scanner, Text Recognition, and Outgoing Images. The app rebuild and 14 settings/profile tests passed; final visual checks remain pending because native UI inspection is unavailable. No agent-operated physical scans were initiated.
 
-The Settings layout is committed locally as `bff3144` (settings window updated). This documentation refresh remains uncommitted. README is now the user manual; this file owns build/test and handoff instructions. This documentation pass did not run commit, push, fetch, or remote synchronization commands. Before switching computers, obtain approval to commit/push, then pull and rebuild on the other Mac. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
+The current distribution path is the public [GitHub repository](https://github.com/neilxu-blip/scanner_utility). The source and user manual through `e8933a9` were verified on GitHub on 2026-10-19. The user authorized publishing the current project there before pursuing the Mac App Store. README is the user manual; this file owns build/test and handoff instructions. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
+
+All implemented features remain available without purchases. StoreKit, a Pro feature split, pricing, App Store signing/sandbox configuration, and self-contained SANE packaging have not been implemented or finalized. App Store work is deferred while the current GitHub version is shared and tested. There is currently no downloadable GitHub release or notarized installer. A project license has not been selected; do not describe the repository as permissively licensed or add license terms without a decision.
 
 ## Objectives and architecture
 
@@ -38,6 +40,7 @@ MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub 
 
 ## Latest validation
 
+- GitHub publication check (2026-10-19): the existing repository is public and its `main` matched local `e8933a9` before this documentation update. All 50 tracked files were reviewed by filename; no scan/build archives or common private-key/token patterns were found. `.build/`, `output/`, and `tmp/pdfs/` remain ignored. These are limited publication checks, not a comprehensive security audit. No physical scans or application code changes were made.
 - Latest documentation pass: checked the manual against the current views, preference defaults, save flow, and exporters. All four Markdown files passed local link/heading and code-fence checks (15 local links), and `git diff --check` passed. No application code changed during this pass, so builds/tests were not rerun; the results below are from the preceding implementation work.
 - Settings sidebar update: `swift test` with the same cache/sandbox flags as `scripts/test.sh` and `--filter 'DocumentSettingsTests|ScanProfileSettingsTests'`: **14 passed, 0 failures**. Existing tests cover preference drafts, defaults, independent profiles, migration, and General persistence. These are model tests, not interactive navigation tests. `git diff --check` also passed.
 - Previous full workflow validation: `bash scripts/test.sh` with normal macOS graphics/text-recognition access: **103 passed, 0 failures**. Covers all earlier behavior plus mode/profile migration, image formats and overwrite protection, custom/stitched PDF geometry, joining/order/seams/cancellation, outgoing copies, review/discard/export retry, local OCR/searchable PDF appearance, corrections, four text orientations, and selected Chinese recognition. The full graphics/OCR suite was not rerun for this layout-only update.
@@ -53,7 +56,7 @@ MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub 
 3. Auto uses text-density heuristics; sparse text/handwriting can be misclassified. Review the PDF/JPEG choice or use an explicit mode. Corrections are native approximations, not Canon algorithms; gutter reduction is illumination correction, not book dewarping. Stitching uses manual alignment, not automatic feature registration.
 4. Sessions remain in memory; crash recovery and disk spooling are absent. Acquisition is capped at 128 MiB and 80 million pixels; stitched bitmap working data is capped at 256 MiB. Some high-resolution combinations are rejected before scanning. No 4 GB/large-image ScanGear equivalent.
 5. Physical scanner-button triggering was explicitly excluded from this update. Canon ScanGear and Windows-only integrations are not bundled. Native email actions open drafts only; configured temporary outgoing copies are retained and are not automatically purged.
-6. Minimum macOS 14 and Intel execution, distribution/notarization, and release-build validation remain unverified. Refresh this file before switching computers; commit/push requires approval.
+6. Minimum macOS 14 and Intel execution, distribution/notarization, and release-build validation remain unverified. For a future downloadable GitHub app, validate the release build and document architecture, separate SANE setup, and signing status. For a future App Store build, first evaluate SANE redistribution licenses, sandboxed USB access, persistent folder permissions, and self-contained packaging; purchases come after that feasibility work. Refresh this file before switching computers; commit/push requires approval.
 7. Settings wording currently overstates saving behavior: “Check scan results” only toggles page-editing controls, and `DocumentView.chooseDestination()` always opens a save dialog. The explanatory text also implies image batches, while JPEG/PNG/TIFF workflows currently save one image per session. The manual documents actual behavior; aligning the UI wording is pending.
 
 ## Performance and button proposals
