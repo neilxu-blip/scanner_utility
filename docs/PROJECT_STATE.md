@@ -4,11 +4,11 @@ Last updated: 2026-10-19
 
 ## Current checkpoint
 
-Version 0.7.0 implements all six on-screen scan modes and General Settings using native macOS frameworks and SANE. The latest layout update places General and all scan modes in one persistent left sidebar, with a fixed page header and action buttons on the right. General controls are grouped into Scanner, Text Recognition, and Outgoing Images. The app rebuild and 14 settings/profile tests passed; final visual checks remain pending because native UI inspection is unavailable. No agent-operated physical scans were initiated.
+Version 0.7.0 implements all six on-screen scan modes and General Settings using native macOS frameworks and SANE. The latest layout places General and all scan modes in one persistent left sidebar, with a fixed page header and action buttons on the right. General controls are grouped into Scanner, Text Recognition, and Outgoing Images. The optimized release build passed all 103 tests on Apple silicon/macOS 15.8. Final interactive UI and additional hardware checks remain pending. No agent-operated physical scans were initiated.
 
-The current distribution path is the public [GitHub repository](https://github.com/neilxu-blip/scanner_utility). The source and user manual through `e8933a9` were verified on GitHub on 2026-10-19. The user authorized publishing the current project there before pursuing the Mac App Store. README is the user manual; this file owns build/test and handoff instructions. Save any open session before quitting; app bundles and scan artifacts are not stored in Git.
+The current distribution path is the public [GitHub repository](https://github.com/neilxu-blip/scanner_utility) and [v0.7.0 preview release](https://github.com/neilxu-blip/scanner_utility/releases/tag/v0.7.0). The user authorized source, documentation, and a downloadable app. The download is an arm64 ZIP plus SHA-256 checksum, targeting macOS 14+. It is ad-hoc signed, not Developer ID signed or Apple-notarized, and requires separately installed SANE for real scans. README is the user manual; this file owns build/test and handoff instructions. Save any open session before quitting; binaries are release attachments rather than files stored in Git.
 
-All implemented features remain available without purchases. StoreKit, a Pro feature split, pricing, App Store signing/sandbox configuration, and self-contained SANE packaging have not been implemented or finalized. App Store work is deferred while the current GitHub version is shared and tested. There is currently no downloadable GitHub release or notarized installer. A project license has not been selected; do not describe the repository as permissively licensed or add license terms without a decision.
+All implemented features remain available without purchases. StoreKit, a Pro feature split, pricing, App Store signing/sandbox configuration, and self-contained SANE packaging have not been implemented or finalized. App Store work is deferred while the current GitHub version is shared and tested. No Intel binary or notarized installer is provided. A project license has not been selected; do not describe the repository as permissively licensed or add license terms without a decision.
 
 ## Objectives and architecture
 
@@ -40,6 +40,8 @@ MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub 
 
 ## Latest validation
 
+- Downloadable preview (2026-10-19): `bash scripts/build-app.sh release` passed. `swift test --configuration release` with the test script's cache/sandbox flags and normal macOS graphics access: **103 passed, 0 failures** on arm64/macOS 15.8. No application feature code changed during release preparation.
+- `bash scripts/package-release.sh` passed: optimized build, debug-map stripping, renewed ad-hoc signature, ZIP integrity, extracted-app signature verification, executable byte comparison, and SHA-256 verification. Archive inventory contains only the app bundle; no `/Users/` or temporary home-directory paths remain in its executable. Mach-O metadata confirms arm64 and minimum macOS 14; linked libraries are system libraries, with SANE invoked separately. This does not verify clean-Mac/Gatekeeper launch, macOS 14 runtime behavior, or new physical scanner combinations.
 - GitHub publication check (2026-10-19): the existing repository is public and its `main` matched local `e8933a9` before this documentation update. All 50 tracked files were reviewed by filename; no scan/build archives or common private-key/token patterns were found. `.build/`, `output/`, and `tmp/pdfs/` remain ignored. These are limited publication checks, not a comprehensive security audit. No physical scans or application code changes were made.
 - Latest documentation pass: checked the manual against the current views, preference defaults, save flow, and exporters. All four Markdown files passed local link/heading and code-fence checks (15 local links), and `git diff --check` passed. No application code changed during this pass, so builds/tests were not rerun; the results below are from the preceding implementation work.
 - Settings sidebar update: `swift test` with the same cache/sandbox flags as `scripts/test.sh` and `--filter 'DocumentSettingsTests|ScanProfileSettingsTests'`: **14 passed, 0 failures**. Existing tests cover preference drafts, defaults, independent profiles, migration, and General persistence. These are model tests, not interactive navigation tests. `git diff --check` also passed.
@@ -56,7 +58,7 @@ MacBook Air: UI/mock development. Mac Studio: real USB/SANE integration. GitHub 
 3. Auto uses text-density heuristics; sparse text/handwriting can be misclassified. Review the PDF/JPEG choice or use an explicit mode. Corrections are native approximations, not Canon algorithms; gutter reduction is illumination correction, not book dewarping. Stitching uses manual alignment, not automatic feature registration.
 4. Sessions remain in memory; crash recovery and disk spooling are absent. Acquisition is capped at 128 MiB and 80 million pixels; stitched bitmap working data is capped at 256 MiB. Some high-resolution combinations are rejected before scanning. No 4 GB/large-image ScanGear equivalent.
 5. Physical scanner-button triggering was explicitly excluded from this update. Canon ScanGear and Windows-only integrations are not bundled. Native email actions open drafts only; configured temporary outgoing copies are retained and are not automatically purged.
-6. Minimum macOS 14 and Intel execution, distribution/notarization, and release-build validation remain unverified. For a future downloadable GitHub app, validate the release build and document architecture, separate SANE setup, and signing status. For a future App Store build, first evaluate SANE redistribution licenses, sandboxed USB access, persistent folder permissions, and self-contained packaging; purchases come after that feasibility work. Refresh this file before switching computers; commit/push requires approval.
+6. The release build and ZIP are validated; clean-Mac/Gatekeeper launch, minimum macOS 14 execution, Intel execution, and Developer ID signing/notarization remain unverified. For a future App Store build, first evaluate SANE redistribution licenses, sandboxed USB access, persistent folder permissions, and self-contained packaging; purchases come after that feasibility work. Refresh this file before switching computers; commit/push requires approval.
 7. Settings wording currently overstates saving behavior: “Check scan results” only toggles page-editing controls, and `DocumentView.chooseDestination()` always opens a save dialog. The explanatory text also implies image batches, while JPEG/PNG/TIFF workflows currently save one image per session. The manual documents actual behavior; aligning the UI wording is pending.
 
 ## Performance and button proposals
@@ -72,7 +74,15 @@ bash scripts/build-app.sh
 open ".build/Scanner Utility.app"
 ```
 
-Alternatively, open `Package.swift` in Xcode and run the `ScannerUtility` executable scheme. `bash scripts/build-app.sh release` requests a release build, which has not been validated. The script signs the local app ad hoc; there is no notarized installer or distribution setup.
+Alternatively, open `Package.swift` in Xcode and run the `ScannerUtility` executable scheme. `bash scripts/build-app.sh release` produces the validated optimized build. The script signs the local app ad hoc; Developer ID signing and notarization are not configured.
+
+To build and package a download without uploading it:
+
+```sh
+bash scripts/package-release.sh
+```
+
+This writes a version/architecture-named ZIP and `.sha256` file under `.build/releases/<version>-<architecture>/`, retaining ignored staging/verification copies. It strips debug-map records from the distribution copy, renews its ad-hoc signature, and verifies an extracted copy. Existing release archives are never replaced. SANE and user data are excluded. Upload only the ZIP/checksum as GitHub Release assets after checks pass, targeting the corresponding source commit; the initial `v0.7.0` is a prerelease.
 
 ```sh
 bash scripts/test.sh

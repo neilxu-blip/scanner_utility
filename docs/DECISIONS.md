@@ -153,3 +153,9 @@ Entries describe the decisions at their milestone; current behavior and validati
 **Rationale:** The user chose GitHub as the immediate publication path for their first macOS app after discussing App Store packaging and sandbox requirements. This lets the existing scanner workflows be shared while those distribution questions remain unresolved.
 
 **Trade-off:** Real scanning still requires separately installed SANE. Source publication does not provide a notarized installer or establish support for untested scanners. App Store distribution and a one-time Pro purchase remain future possibilities; no price, paid feature boundary, project license, or bundled-SANE distribution approach has been selected.
+
+## 2026-10-19 — Downloadable GitHub preview
+
+**Decision:** Following the user's explicit request for an app download alongside source/documentation, package version 0.7.0 as an Apple silicon ZIP and SHA-256 checksum on a GitHub prerelease. Use the optimized release build, retain ad-hoc signing, and publish the separate SANE requirement and lack of Apple notarization prominently.
+
+**Rationale and trade-off:** Users can try the app without building it or using Xcode. The current development Mac can validate arm64, so this release does not claim Intel compatibility. A preview label reflects pending hardware/UI/minimum-OS validation. Only the app bundle is archived; SANE, private scans, local preferences, and build caches are excluded. The checksum checks download integrity, not Apple approval. Developer ID signing/notarization and bundled driver redistribution remain future work.

@@ -2,15 +2,29 @@
 
 Scan documents and photos on macOS, combine pages into one PDF, and save scans as images. Current version: **0.7.0**. Requires **macOS 14 or later** and a compatible scanner configured with SANE. Canon LiDE 120 has been used successfully for document scanning; other scanners and the newer scan modes still need hardware testing.
 
-The project is currently shared through [GitHub](https://github.com/neilxu-blip/scanner_utility). All implemented features are available in the current build; there are no in-app purchases. Mac App Store distribution is a future possibility. SANE must be installed separately for real scanning.
+The project is currently shared through [GitHub](https://github.com/neilxu-blip/scanner_utility). All implemented features are available in the current build; there are no in-app purchases. Mac App Store distribution is a future possibility.
 
-## Open the app
+## Download and open the app
 
-If the app has already been built, double-click **Scanner Utility.app** in the project's `.build` folder. Because that folder is hidden, in Finder choose **Go → Go to Folder…** (Shift–Command–G), enter your project folder's path followed by `/.build`, and open the app.
+1. Open the [version 0.7.0 preview release](https://github.com/neilxu-blip/scanner_utility/releases/tag/v0.7.0) and download **ScannerUtility-0.7.0-macos-arm64.zip** under Assets. The source-code archives are for building the app yourself.
+2. Double-click the ZIP to extract **Scanner Utility.app**, then drag it to your **Applications** folder.
+3. Open the app. This download is for **Apple silicon Macs (M-series), macOS 14 or later**. An Intel download is not provided in this release.
 
-You do not need to use Xcode for everyday scanning. If you only have the source files, follow [Build and test](docs/PROJECT_STATE.md#build-and-test) once to create the app. A downloadable installer is not provided by this repository.
+**Signing:** this preview is ad-hoc signed, not Developer ID signed or notarized by Apple. macOS may block its first launch. If you trust this project's download, try opening it, then use **System Settings → Privacy & Security → Open Anyway** if offered. Follow [Apple's instructions for opening an unnotarized app](https://support.apple.com/en-us/102445); managed Macs may disallow this. A checksum file is included on the release page to verify the downloaded ZIP.
+
+You do not need Xcode to use the download. To build from source instead, follow [Build and test](docs/PROJECT_STATE.md#build-and-test); the generated app is in the hidden `.build` folder inside your checkout.
 
 After an update, save your current scans, quit Scanner Utility, and reopen it to load the new version.
+
+### Set up a real scanner
+
+The download does **not** include SANE or scanner drivers. If SANE is already working on your Mac, no reinstall is needed. Otherwise, with [Homebrew](https://brew.sh) installed, open Terminal and run:
+
+```sh
+brew install sane-backends
+```
+
+This is Homebrew's [SANE package](https://formulae.brew.sh/formula/sane-backends). Connect a compatible scanner and click **Refresh** in the app. Compatibility depends on the scanner and SANE backend; installing the package does not guarantee every scanner will work. You can try [Mock Scanner](#try-the-app-without-a-scanner) immediately without installing SANE.
 
 ## Scan several pages into one PDF
 
